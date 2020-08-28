@@ -41,6 +41,7 @@ def train(
             output = F.log_softmax(output, dim=2)
             output = output.transpose(0, 1)  # (time, batch, n_class)
 
+            input_lengths = [inp // model.module.stride for inp in input_lengths]
             loss = criterion(output, labels, input_lengths, label_lengths)
             loss.backward()
 
@@ -81,6 +82,7 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 output = F.log_softmax(output, dim=2)
                 output = output.transpose(0, 1)  # (time, batch, n_class)
 
+                input_lengths = [inp // model.module.stride for inp in input_lengths]
                 loss = criterion(output, labels, input_lengths, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
@@ -126,7 +128,6 @@ def GreedyDecoder(
 
 def main(hparams, experiment):
     experiment.log_parameters(hparams)
-
     torch.manual_seed(7)
 
     test_dataset = torchaudio.datasets.LIBRISPEECH("/data", url="dev-clean")
@@ -200,10 +201,10 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        # disabled=True,
+        disabled=True,
     )
     hparams = {
-        "batch_size": 32,
+        "batch_size": 24,
         "epochs": 2,
         "learning_rate": 5e-4,
         "n_cnn_layers": 3,
