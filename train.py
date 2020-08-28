@@ -1,3 +1,5 @@
+import time
+
 from comet_ml import Experiment
 import torch
 import torchaudio
@@ -27,6 +29,7 @@ def train(
 ):
     model.train()
     data_len = len(train_loader.dataset)
+    start = time.time()
     with experiment.train():
         for batch_idx, _data in enumerate(train_loader):
             spectrograms, labels, input_lengths, label_lengths = _data
@@ -59,6 +62,8 @@ def train(
                         loss.item(),
                     )
                 )
+    epoch_time = round(time.time() - start)
+    experiment.log_metric("epoch_time", epoch_time)
 
 
 def test(model, test_loader, criterion, epoch, iter_meter, experiment):
@@ -119,19 +124,7 @@ def GreedyDecoder(
     return decodes, targets
 
 
-def main(experiment):
-    hparams = {
-        "batch_size": 32,
-        "epochs": 2,
-        "learning_rate": 5e-4,
-        "n_cnn_layers": 3,
-        "n_rnn_layers": 5,
-        "rnn_dim": 512,
-        "n_class": 29,
-        "n_feats": 80,
-        "stride": 2,
-        "dropout": 0.1,
-    }
+def main(hparams, experiment):
     experiment.log_parameters(hparams)
 
     torch.manual_seed(7)
@@ -209,4 +202,16 @@ if __name__ == "__main__":
         workspace="fernand",
         # disabled=True,
     )
-    main(experiment)
+    hparams = {
+        "batch_size": 32,
+        "epochs": 2,
+        "learning_rate": 5e-4,
+        "n_cnn_layers": 3,
+        "n_rnn_layers": 5,
+        "rnn_dim": 512,
+        "n_class": 29,
+        "n_feats": 80,
+        "stride": 2,
+        "dropout": 0.1,
+    }
+    main(hparams, experiment)
