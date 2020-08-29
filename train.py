@@ -25,11 +25,19 @@ class IterMeter(object):
 
 
 def train(
-    model, train_loader, criterion, optimizer, scheduler, epoch, iter_meter, experiment,
+    model,
+    train_loader,
+    criterion,
+    optimizer,
+    scheduler,
+    epoch,
+    iter_meter,
+    experiment,
 ):
     model.train()
     data_len = len(train_loader.dataset)
     start = time.time()
+    batch_start = start
     with experiment.train():
         for batch_idx, _data in enumerate(train_loader):
             spectrograms, labels, input_lengths, label_lengths = _data
@@ -54,15 +62,18 @@ def train(
             scheduler.step()
             iter_meter.step()
             if batch_idx % 100 == 0 or batch_idx == data_len:
+                time_for_100_batches = round(time.time() - batch_start)
                 print(
-                    "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
+                    "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                         epoch,
                         batch_idx * len(spectrograms),
                         data_len,
                         100.0 * batch_idx / len(train_loader),
                         loss.item(),
+                        time_for_100_batches,
                     )
                 )
+                batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
 
@@ -131,26 +142,21 @@ def main(hparams, experiment):
     torch.manual_seed(7)
 
     test_dataset = torchaudio.datasets.LIBRISPEECH("/data", url="dev-clean")
-    train_clean_100 = torchaudio.datasets.LIBRISPEECH("/data", url="train-clean-100")
-    train_clean_360 = torchaudio.datasets.LIBRISPEECH("/data", url="train-clean-360")
-    train_other_500 = torchaudio.datasets.LIBRISPEECH("/data", url="train-other-500")
-    train_dataset = torch.utils.data.ConcatDataset(
-        [train_clean_100, train_clean_360, train_other_500]
-    )
+    train_dataset = data.SortedTrainLibriSpeech("/data")
 
     kwargs = {"num_workers": 4, "pin_memory": True}
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=hparams["batch_size"],
-        shuffle=True,
-        collate_fn=lambda x: data.data_processing(x, "train"),
+        shuffle=False,
+        collate_fn=lambda x: data.collate_fn(x, "train"),
         **kwargs
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
         batch_size=hparams["batch_size"],
         shuffle=False,
-        collate_fn=lambda x: data.data_processing(x, "valid"),
+        collate_fn=lambda x: data.collate_fn(x, "valid"),
         **kwargs
     )
 
@@ -201,7 +207,7 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        disabled=True,
+        # disabled=True,
     )
     hparams = {
         "batch_size": 24,

@@ -1,3 +1,6 @@
+import os
+import pickle
+
 import torch
 import torchaudio
 import torch.nn as nn
@@ -19,12 +22,45 @@ valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
 text_transform = TextTransform()
 
 
-def data_processing(data, data_type="train"):
+class SortedTrainLibriSpeech(torch.utils.data.Dataset):
+    def __init__(self, dataset_path):
+        assert dataset_path.endswith(".pkl")
+        with open(dataset_path, "rb") as f:
+            self.files_durations = pickle.load(f)
+        self.len = len(self.files_durations)
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, i):
+        audio_path, _ = self.files_durations[i]
+        path, filename = os.path.split(audio_path)
+        fileid = filename.split(".")[0]
+        speaker_id, chapter_id, utterance_id = fileid.split("-")
+
+        file_text = speaker_id + "-" + chapter_id + ".trans.txt"
+        file_text = os.path.join(path, file_text)
+
+        waveform, sample_rate = torchaudio.load(audio_path)
+
+        with open(file_text) as f:
+            for line in f:
+                fileid_text, utterance = line.strip().split(" ", 1)
+                if fileid == fileid_text:
+                    break
+            else:
+                # Translation not found
+                raise FileNotFoundError("Translation not found for " + audio_path)
+
+        return (waveform, utterance)
+
+
+def collate_fn(data, data_type="train"):
     spectrograms = []
     labels = []
     input_lengths = []
     label_lengths = []
-    for (waveform, _, utterance, _, _, _) in data:
+    for waveform, utterance in data:
         if data_type == "train":
             spec = train_audio_transforms(waveform).squeeze(0).transpose(0, 1)
         else:
