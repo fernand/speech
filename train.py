@@ -25,14 +25,7 @@ class IterMeter(object):
 
 
 def train(
-    model,
-    train_loader,
-    criterion,
-    optimizer,
-    scheduler,
-    epoch,
-    iter_meter,
-    experiment,
+    model, train_loader, criterion, optimizer, scheduler, epoch, iter_meter, experiment,
 ):
     model.train()
     data_len = len(train_loader.dataset)
@@ -142,14 +135,14 @@ def main(hparams, experiment):
     torch.manual_seed(7)
 
     test_dataset = torchaudio.datasets.LIBRISPEECH("/data", url="dev-clean")
-    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.npy")
+    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl")
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=hparams["batch_size"],
         shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "train"),
-        num_workers=4,
+        num_workers=1,
         pin_memory=True,
     )
     test_loader = torch.utils.data.DataLoader(
@@ -208,7 +201,7 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        # disabled=True,
+        disabled=True,
     )
     hparams = {
         "batch_size": 24,
