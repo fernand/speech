@@ -201,7 +201,7 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        disabled=True,
+        # disabled=True,
     )
     hparams = {
         "batch_size": 24,
