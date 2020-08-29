@@ -142,22 +142,23 @@ def main(hparams, experiment):
     torch.manual_seed(7)
 
     test_dataset = torchaudio.datasets.LIBRISPEECH("/data", url="dev-clean")
-    train_dataset = data.SortedTrainLibriSpeech("/data")
+    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.npy")
 
-    kwargs = {"num_workers": 4, "pin_memory": True}
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=hparams["batch_size"],
         shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "train"),
-        **kwargs
+        num_workers=4,
+        pin_memory=True,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
         batch_size=hparams["batch_size"],
         shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        **kwargs
+        num_workers=5,
+        pin_memory=True,
     )
 
     model = net.SpeechRecognitionModel(

@@ -2,6 +2,7 @@ import multiprocessing
 import os
 import pickle
 
+import numpy as np
 import torchaudio
 from torchaudio.datasets.utils import walk_files
 
@@ -33,3 +34,7 @@ if __name__ == "__main__":
     sorted_durations = sorted(zip(audio_files, durations), key=lambda t: t[1])
     with open("sorted_train_librispeech.pkl", "wb") as f:
         pickle.dump(sorted_durations, f)
+    paths = [t[0] for t in sorted_durations]
+    paths = np.array(paths, dtype=np.string_)
+    with open("sorted_train_librispeech.npy", "wb") as f:
+        np.save(f, paths, allow_pickle=False)

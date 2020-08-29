@@ -1,6 +1,6 @@
 import os
-import pickle
 
+import numpy as np
 import torch
 import torchaudio
 import torch.nn as nn
@@ -24,16 +24,16 @@ text_transform = TextTransform()
 
 class SortedTrainLibriSpeech(torch.utils.data.Dataset):
     def __init__(self, dataset_path):
-        assert dataset_path.endswith(".pkl")
+        assert dataset_path.endswith(".npy")
         with open(dataset_path, "rb") as f:
-            self.files_durations = pickle.load(f)
-        self.len = len(self.files_durations)
+            self.paths = np.load(f, allow_pickle=False)
+        self.len = len(self.paths)
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, i):
-        audio_path, _ = self.files_durations[i]
+        audio_path = self.paths[i].decode()
         path, filename = os.path.split(audio_path)
         fileid = filename.split(".")[0]
         speaker_id, chapter_id, utterance_id = fileid.split("-")
