@@ -134,7 +134,7 @@ def main(hparams, experiment):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
 
-    test_dataset = torchaudio.datasets.LIBRISPEECH("/data", url="dev-clean")
+    test_dataset = data.SortedTrainLibriSpeech("sorted_test_clean_librispeech.pkl")
     train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl")
 
     train_loader = torch.utils.data.DataLoader(
