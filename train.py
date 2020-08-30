@@ -173,7 +173,7 @@ if __name__ == "__main__":
     hparams = {
         "alpha": 0.5,
         "shuffle": True,
-        "batch_size": 22,
+        "batch_size": 24,
         "epochs": 2,
         "learning_rate": 2.5e-3,
         "n_class": 29,
