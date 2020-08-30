@@ -80,7 +80,6 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
     print("\nevaluating…")
     model.eval()
     test_loss = 0
-    test_cer, test_wer = [], []
     with experiment.test():
         with torch.no_grad():
             for I, batch in enumerate(test_loader):
@@ -97,43 +96,11 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 labels = labels.int().cuda()
                 label_lengths = label_lengths.cuda()
                 loss = criterion(output, labels, act_lens, label_lengths)
+                test_loss += loss.item() / len(test_loader)
 
-                decoded_preds, decoded_targets = GreedyDecoder(
-                    output.transpose(0, 1), labels, label_lengths
-                )
-                for j in range(len(decoded_preds)):
-                    test_cer.append(words.cer(decoded_targets[j], decoded_preds[j]))
-                    test_wer.append(words.wer(decoded_targets[j], decoded_preds[j]))
-
-    avg_cer = sum(test_cer) / len(test_cer)
-    avg_wer = sum(test_wer) / len(test_wer)
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
-    experiment.log_metric("cer", avg_cer, step=iter_meter.get())
-    experiment.log_metric("wer", avg_wer, step=iter_meter.get())
 
-    print(
-        "Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
-            test_loss, avg_cer, avg_wer
-        )
-    )
-
-
-def GreedyDecoder(output, labels, label_lengths, blank_label=0, collapse_repeated=True):
-    arg_maxes = torch.argmax(output, dim=2)
-    decodes = []
-    targets = []
-    for i, args in enumerate(arg_maxes):
-        decode = []
-        targets.append(
-            data.text_transform.int_to_text(labels[i][: label_lengths[i]].tolist())
-        )
-        for j, index in enumerate(args):
-            if index != blank_label:
-                if collapse_repeated and j != 0 and index == args[j - 1]:
-                    continue
-                decode.append(index.item())
-        decodes.append(data.text_transform.int_to_text(decode))
-    return decodes, targets
+    print("Test set: Average loss: {:.4f}\n".format(test_loss))
 
 
 def main(hparams, experiment):
@@ -146,7 +113,7 @@ def main(hparams, experiment):
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=hparams["batch_size"],
-        shuffle=False,
+        shuffle=hparams["shuffle"],
         collate_fn=lambda x: data.collate_fn(x, "train"),
         num_workers=1,
         pin_memory=True,
@@ -161,6 +128,7 @@ def main(hparams, experiment):
     )
 
     model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_class"])
+    model = nn.DataParallel(model)
     model.cuda()
 
     # print(model)
@@ -200,11 +168,12 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        disabled=True,
+        # disabled=True,
     )
     hparams = {
         "alpha": 0.5,
-        "batch_size": 4,
+        "shuffle": True,
+        "batch_size": 22,
         "epochs": 2,
         "learning_rate": 2.5e-3,
         "n_class": 29,

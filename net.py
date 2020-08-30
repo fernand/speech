@@ -39,8 +39,7 @@ class SingleConvBlock(nn.Module):
             out_channels=out_channels,
             kernel_size=5,
             stride=stride,
-            padding=5 // 2
-            # groups=in_channels,
+            padding=5 // 2,
         )
         self.bn = nn.BatchNorm1d(out_channels)
         self.se_layer = SELayer(out_channels, dropout)
