@@ -38,11 +38,12 @@ def train(
 
             optimizer.zero_grad()
 
-            output = model(spectrograms)  # (batch, time, n_class)
+            output, t_len = model(spectrograms)  # (batch, time, n_class)
             output = F.log_softmax(output, dim=2)
             output = output.transpose(0, 1)  # (time, batch, n_class)
 
-            input_lengths = [inp // model.module.stride for inp in input_lengths]
+            # Technically we're doing 8x downsampling.
+            input_lengths = [round(inp / t_len) for inp in input_lengths]
             loss = criterion(output, labels, input_lengths, label_lengths)
             loss.backward()
 
@@ -86,7 +87,7 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 output = F.log_softmax(output, dim=2)
                 output = output.transpose(0, 1)  # (time, batch, n_class)
 
-                input_lengths = [inp // model.module.stride for inp in input_lengths]
+                input_lengths = [round(inp / t_len) for inp in input_lengths]
                 loss = criterion(output, labels, input_lengths, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
@@ -154,19 +155,10 @@ def main(hparams, experiment):
         pin_memory=True,
     )
 
-    model = net.SpeechRecognitionModel(
-        hparams["n_cnn_layers"],
-        hparams["n_rnn_layers"],
-        hparams["rnn_dim"],
-        hparams["n_class"],
-        hparams["n_feats"],
-        hparams["stride"],
-        hparams["dropout"],
-    )
-    model = nn.DataParallel(model)
+    model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_class"])
     model.cuda()
 
-    # print(model)
+    print(model)
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
@@ -201,18 +193,15 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        # disabled=True,
+        disabled=True,
     )
     hparams = {
-        "batch_size": 24,
+        "alpha": 0.5,
+        "batch_size": 20,
         "epochs": 2,
         "learning_rate": 5e-4,
-        "n_cnn_layers": 3,
-        "n_rnn_layers": 5,
-        "rnn_dim": 512,
         "n_class": 29,
         "n_feats": 80,
-        "stride": 2,
         "dropout": 0.1,
     }
     main(hparams, experiment)

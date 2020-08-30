@@ -12,8 +12,8 @@ train_audio_transforms = nn.Sequential(
     torchaudio.transforms.MelSpectrogram(
         sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
     ),
-    torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
-    torchaudio.transforms.TimeMasking(time_mask_param=35),
+    # torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
+    # torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
@@ -50,7 +50,6 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
                 if fileid == fileid_text:
                     break
             else:
-                # Translation not found
                 raise FileNotFoundError("Translation not found for " + audio_path)
 
         return (waveform, utterance)
@@ -72,11 +71,8 @@ def collate_fn(data, data_type="train"):
         input_lengths.append(spec.shape[0])
         label_lengths.append(len(label))
 
-    spectrograms = (
-        nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
-        .unsqueeze(1)
-        .transpose(2, 3)
-    )
+    spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
+    spectrograms = spectrograms.transpose(1, 2)
     labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
 
     return spectrograms, labels, input_lengths, label_lengths
