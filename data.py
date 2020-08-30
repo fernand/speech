@@ -66,13 +66,18 @@ def collate_fn(data, data_type="train"):
         else:
             spec = valid_audio_transforms(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        label = torch.Tensor(text_transform.text_to_int(utterance.lower()))
-        labels.append(label)
+        label = text_transform.text_to_int(utterance.lower())
+        labels.extend(label)
         input_lengths.append(spec.shape[0])
         label_lengths.append(len(label))
 
     spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
     spectrograms = spectrograms.transpose(1, 2)
-    labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
+    labels = torch.tensor(labels, dtype=torch.int32)
 
-    return spectrograms, labels, input_lengths, label_lengths
+    return (
+        spectrograms,
+        labels,
+        input_lengths,
+        torch.tensor(label_lengths, dtype=torch.int32),
+    )

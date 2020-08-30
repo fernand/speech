@@ -36,9 +36,11 @@ class TextTransform:
         self.index_map = {}
         for line in char_map_str.strip().split("\n"):
             ch, index = line.split()
-            self.char_map[ch] = int(index)
+            # The blank will be the zero index.
+            index = int(index) + 1
+            self.char_map[ch] = index
             self.index_map[int(index)] = ch
-        self.index_map[1] = " "
+        self.index_map[2] = " "
 
     def text_to_int(self, text):
         """ Use a character map and convert text to an integer sequence """

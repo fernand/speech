@@ -32,9 +32,10 @@ def train(
     start = time.time()
     batch_start = start
     with experiment.train():
-        for batch_idx, _data in enumerate(train_loader):
-            spectrograms, labels, input_lengths, label_lengths = _data
+        for batch_idx, batch in enumerate(train_loader):
+            spectrograms, labels, input_lengths, label_lengths = batch
             spectrograms, labels = spectrograms.cuda(), labels.cuda()
+            label_lengths = label_lengths.cuda()
 
             optimizer.zero_grad()
 
@@ -43,7 +44,11 @@ def train(
             output = output.transpose(0, 1)  # (time, batch, n_class)
 
             # Technically we're doing 8x downsampling.
-            input_lengths = [round(inp / t_len) for inp in input_lengths]
+            # downsample_f = max(input_lengths) / t_len
+            # input_lengths = [round(inp / downsample_f) for inp in input_lengths]
+            input_lengths = torch.full(
+                (output.size(1),), output.size(0), dtype=torch.int32
+            ).cuda()
             loss = criterion(output, labels, input_lengths, label_lengths)
             loss.backward()
 
@@ -83,11 +88,12 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 spectrograms, labels, input_lengths, label_lengths = _data
                 spectrograms, labels = spectrograms.cuda(), labels.cuda()
 
-                output = model(spectrograms)  # (batch, time, n_class)
+                output, t_len = model(spectrograms)  # (batch, time, n_class)
                 output = F.log_softmax(output, dim=2)
                 output = output.transpose(0, 1)  # (time, batch, n_class)
 
-                input_lengths = [round(inp / t_len) for inp in input_lengths]
+                downsample_f = max(input_lengths) / t_len
+                input_lengths = [round(inp / downsample_f) for inp in input_lengths]
                 loss = criterion(output, labels, input_lengths, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
@@ -158,13 +164,15 @@ def main(hparams, experiment):
     model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_class"])
     model.cuda()
 
-    print(model)
+    # print(model)
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
-    optimizer = torch.optim.AdamW(model.parameters(), hparams["learning_rate"])
-    criterion = nn.CTCLoss(blank=28).cuda()
+    optimizer = torch.optim.AdamW(
+        model.parameters(), hparams["learning_rate"], weight_decay=1e-6
+    )
+    criterion = nn.CTCLoss(blank=0).cuda()
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
         max_lr=hparams["learning_rate"],
@@ -199,7 +207,7 @@ if __name__ == "__main__":
         "alpha": 0.5,
         "batch_size": 20,
         "epochs": 2,
-        "learning_rate": 5e-4,
+        "learning_rate": 2.5e-3,
         "n_class": 29,
         "n_feats": 80,
         "dropout": 0.1,
