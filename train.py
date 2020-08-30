@@ -5,6 +5,7 @@ import torch
 import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
+from warprnnt_pytorch import RNNTLoss
 
 import words
 import net
@@ -33,23 +34,21 @@ def train(
     batch_start = start
     with experiment.train():
         for batch_idx, batch in enumerate(train_loader):
-            spectrograms, labels, input_lengths, label_lengths = batch
-            spectrograms, labels = spectrograms.cuda(), labels.cuda()
-            label_lengths = label_lengths.cuda()
+            spectrograms, labels, label_lengths = batch
+            spectrograms = spectrograms.cuda()
+            labels = labels.cuda()
 
             optimizer.zero_grad()
 
-            output, t_len = model(spectrograms)  # (batch, time, n_class)
-            output = F.log_softmax(output, dim=2)
-            output = output.transpose(0, 1)  # (time, batch, n_class)
+            output = model(spectrograms, labels)  # B, T, U, n_class
+            output = F.log_softmax(output, dim=3)
 
-            # Technically we're doing 8x downsampling.
-            # downsample_f = max(input_lengths) / t_len
-            # input_lengths = [round(inp / downsample_f) for inp in input_lengths]
-            input_lengths = torch.full(
-                (output.size(1),), output.size(0), dtype=torch.int32
+            act_lens = torch.full(
+                (output.size(0),), output.size(1), dtype=torch.int32
             ).cuda()
-            loss = criterion(output, labels, input_lengths, label_lengths)
+            labels = labels.int().cuda()
+            label_lengths = label_lengths.cuda()
+            loss = criterion(output, labels, act_lens, label_lengths)
             loss.backward()
 
             experiment.log_metric("loss", loss.item(), step=iter_meter.get())
@@ -84,18 +83,20 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
     test_cer, test_wer = [], []
     with experiment.test():
         with torch.no_grad():
-            for I, _data in enumerate(test_loader):
-                spectrograms, labels, input_lengths, label_lengths = _data
-                spectrograms, labels = spectrograms.cuda(), labels.cuda()
+            for I, batch in enumerate(test_loader):
+                spectrograms, labels, label_lengths = batch
+                spectrograms = spectrograms.cuda()
+                labels = labels.cuda()
 
-                output, t_len = model(spectrograms)  # (batch, time, n_class)
-                output = F.log_softmax(output, dim=2)
-                output = output.transpose(0, 1)  # (time, batch, n_class)
+                output = model(spectrograms, labels)  # B, T, U, n_class
+                output = F.log_softmax(output, dim=3)
 
-                downsample_f = max(input_lengths) / t_len
-                input_lengths = [round(inp / downsample_f) for inp in input_lengths]
-                loss = criterion(output, labels, input_lengths, label_lengths)
-                test_loss += loss.item() / len(test_loader)
+                act_lens = torch.full(
+                    (output.size(0),), output.size(1), dtype=torch.int32
+                ).cuda()
+                labels = labels.int().cuda()
+                label_lengths = label_lengths.cuda()
+                loss = criterion(output, labels, act_lens, label_lengths)
 
                 decoded_preds, decoded_targets = GreedyDecoder(
                     output.transpose(0, 1), labels, label_lengths
@@ -117,9 +118,7 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
     )
 
 
-def GreedyDecoder(
-    output, labels, label_lengths, blank_label=28, collapse_repeated=True
-):
+def GreedyDecoder(output, labels, label_lengths, blank_label=0, collapse_repeated=True):
     arg_maxes = torch.argmax(output, dim=2)
     decodes = []
     targets = []
@@ -172,7 +171,7 @@ def main(hparams, experiment):
     optimizer = torch.optim.AdamW(
         model.parameters(), hparams["learning_rate"], weight_decay=1e-6
     )
-    criterion = nn.CTCLoss(blank=0).cuda()
+    criterion = RNNTLoss(blank=0).cuda()
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
         max_lr=hparams["learning_rate"],
@@ -205,7 +204,7 @@ if __name__ == "__main__":
     )
     hparams = {
         "alpha": 0.5,
-        "batch_size": 20,
+        "batch_size": 4,
         "epochs": 2,
         "learning_rate": 2.5e-3,
         "n_class": 29,

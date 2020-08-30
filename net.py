@@ -102,6 +102,27 @@ class ConvBlock(nn.Module):
         return x
 
 
+# TODO: Need to pack the sequence since there's abig difference in label counts.
+class LabelEncoder(nn.Module):
+    def __init__(self, alpha, n_class):
+        super(LabelEncoder, self).__init__()
+        n_embeds = int(640 * alpha)
+        l1 = int(2048 * alpha)
+        self.embed = nn.Embedding(n_class, n_embeds)
+        self.lstm = nn.LSTM(
+            input_size=n_embeds, hidden_size=l1, num_layers=1, batch_first=True
+        )
+        self.layer_norm = nn.LayerNorm(l1)
+        self.projection = nn.Linear(l1, n_embeds)
+
+    def forward(self, y):
+        y = self.embed(y)
+        y, _ = self.lstm(y)
+        y = self.layer_norm(y)
+        y = self.projection(y)
+        return y
+
+
 class ContextNet(nn.Module):
     def __init__(self, alpha, n_feats, n_class):
         super(ContextNet, self).__init__()
@@ -127,10 +148,16 @@ class ContextNet(nn.Module):
             conv_blocks.append(ConvBlock(l2, l2, 1))
         conv_blocks.append(SingleConvBlock(l2, l3, 1))
         self.encoder = nn.Sequential(*conv_blocks)
+        self.label_encoder = LabelEncoder(alpha, n_class)
+        self.projection = nn.Linear(l3, l3)
         self.classifier = nn.Linear(l3, n_class)
 
-    def forward(self, x):
-        x = self.encoder(x).transpose(1, 2)
-        x = torch.tanh(self.classifier(x))
-        t_len = x.size(1)
-        return x, t_len
+    def forward(self, x, y):
+        x = self.encoder(x).transpose(1, 2)  # B, T, F
+        t_len = x.size(2)
+        y = self.label_encoder(y)  # B, U, F
+        x = x.unsqueeze(2)
+        y = y.unsqueeze(1)
+        out = torch.tanh(self.projection(x + y))
+        out = self.classifier(out)
+        return out  # B, T, U, n_class
