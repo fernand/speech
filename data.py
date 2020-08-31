@@ -33,7 +33,7 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
             # Remove the shortest clips if they're batched up because they won't
             # have enough padding.
             if "train" in dataset_path:
-                self.paths = self.paths[:-1000][17000:][:500]
+                self.paths = self.paths[:-1000]
         # self.paths.reverse()
 
     def __len__(self):

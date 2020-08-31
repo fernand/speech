@@ -138,8 +138,6 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                     target = data.text_transform.int_to_text(
                         labels[j, : label_lengths[j]].tolist()
                     )
-                    print(target)
-                    print(output[j, :, :, :].shape)
                     pred, _ = decoder.decode_static(output[j, :, :, :])
                     pred = data.text_transform.int_to_text(pred)
                     test_cer.append(words.cer(target, pred))
@@ -175,7 +173,7 @@ def main(hparams, experiment):
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
         batch_size=10,
-        shuffle=True,
+        shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=5,
         pin_memory=True,
