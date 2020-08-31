@@ -7,9 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from warprnnt_pytorch import RNNTLoss
 
-import words
-import net
 import data
+import decoder
+import net
+import words
 
 
 def get_linear_schedule_with_warmup(
@@ -113,6 +114,7 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
     print("\nevaluating…")
     model.eval()
     test_loss = 0
+    test_cer, test_wer = [], []
     with experiment.test():
         with torch.no_grad():
             for I, batch in enumerate(test_loader):
@@ -131,8 +133,25 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 loss = criterion(output, labels, act_lens, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
+                for j in range(output.size(0)):
+                    target = data.text_transform.int_to_text(
+                        labels[j, : label_lengths[j]].tolist()
+                    )
+                    pred = decoder.decode_static(output[j, :, :, :])
+                    pred = data.text_transform.int_to_text(pred[0])
+                    test_cer.append(words.cer(target, pred))
+                    test_wer.append(words.wer(target, pred))
+    avg_cer = sum(test_cer) / len(test_cer)
+    avg_wer = sum(test_wer) / len(test_wer)
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
-    print("Test set: Average loss: {:.4f}\n".format(test_loss))
+    experiment.log_metric("cer", avg_cer, step=iter_meter.get())
+    experiment.log_metric("wer", avg_wer, step=iter_meter.get())
+
+    print(
+        "Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
+            test_loss, avg_cer, avg_wer
+        )
+    )
 
 
 def main(hparams, experiment):
@@ -207,7 +226,7 @@ if __name__ == "__main__":
     )
     hparams = {
         "alpha": 0.5,
-        "shuffle": True,
+        "shuffle": False,
         "batch_size": 22,
         "epochs": 2,
         "learning_rate": 2.5e-3,
