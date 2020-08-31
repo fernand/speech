@@ -27,12 +27,17 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
     def __init__(self, dataset_path):
         assert dataset_path.endswith(".pkl")
         with open(dataset_path, "rb") as f:
+            self.paths = [t[0] for t in pickle.load(f)]
             # Remove the longest clips
-            self.paths = [t[0] for t in pickle.load(f)][:-1000]
+            # self.paths = [t[0] for t in pickle.load(f)][:-1000]
             # Remove the shortest clips if they're batched up because they won't
             # have enough padding.
-            # self.paths = [t[0] for t in pickle.load(f)][:-1000][17000:]
-        self.paths.reverse()
+            if "train" in dataset_path:
+                self.paths = self.paths[:-1000][17000:][:500]
+            else:
+                self.paths.reverse()
+                self.paths = self.paths[:500]
+        # self.paths.reverse()
 
     def __len__(self):
         return len(self.paths)

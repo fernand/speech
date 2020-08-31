@@ -133,12 +133,15 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 loss = criterion(output, labels, act_lens, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
+                output = output.cpu()
                 for j in range(output.size(0)):
                     target = data.text_transform.int_to_text(
                         labels[j, : label_lengths[j]].tolist()
                     )
-                    pred = decoder.decode_static(output[j, :, :, :])
-                    pred = data.text_transform.int_to_text(pred[0])
+                    print(target)
+                    print(output[j, :, :, :].shape)
+                    pred, _ = decoder.decode_static(output[j, :, :, :])
+                    pred = data.text_transform.int_to_text(pred)
                     test_cer.append(words.cer(target, pred))
                     test_wer.append(words.wer(target, pred))
     avg_cer = sum(test_cer) / len(test_cer)
@@ -166,12 +169,12 @@ def main(hparams, experiment):
         batch_size=hparams["batch_size"],
         shuffle=hparams["shuffle"],
         collate_fn=lambda x: data.collate_fn(x, "train"),
-        num_workers=1,
+        num_workers=3,
         pin_memory=True,
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
-        batch_size=hparams["batch_size"],
+        batch_size=10,
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=5,
@@ -191,15 +194,8 @@ def main(hparams, experiment):
         model.parameters(), hparams["learning_rate"], weight_decay=1e-6
     )
     criterion = RNNTLoss(blank=0).cuda()
-    # scheduler = get_linear_schedule_with_warmup(
-    #     optimizer, 15000, hparams["epochs"] * len(train_loader)
-    # )
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=hparams["learning_rate"],
-        steps_per_epoch=len(train_loader),
-        epochs=hparams["epochs"],
-        anneal_strategy="linear",
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, 15000, hparams["epochs"] * len(train_loader)
     )
 
     iter_meter = IterMeter()
@@ -222,16 +218,16 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        # disabled=True,
+        disabled=True,
     )
     hparams = {
         "alpha": 0.5,
         "shuffle": False,
         "batch_size": 22,
-        "epochs": 2,
+        "epochs": 3,
         "learning_rate": 2.5e-3,
         "n_class": 29,
         "n_feats": 80,
-        "dropout": 0.1,
+        "dropout": 0.0,
     }
     main(hparams, experiment)
