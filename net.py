@@ -26,7 +26,6 @@ class SELayer(nn.Module):
         x = torch.mean(x, dim=2, keepdim=False) / x.size(2)
         x = swish(self.layer1(x))
         x = torch.sigmoid(self.layer2(x))
-        # TODO: not sure this is right
         x = x.unsqueeze(2) * x_orig
         return x_orig
 
@@ -83,13 +82,12 @@ class ConvBlock(nn.Module):
             layers.append(nn.BatchNorm1d(conv_out_channels))
             layers.append(Swish())
         self.conv_layers = nn.Sequential(*layers)
-        last_stride = layers[-3].stride[0]
         self.residual = nn.Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=5,
             padding=0,
-            stride=last_stride,
+            stride=stride,
             groups=in_channels,
         )
         self.se_layer = SELayer(out_channels, dropout)
@@ -101,7 +99,7 @@ class ConvBlock(nn.Module):
         return x
 
 
-# TODO: Need to pack the sequence since there's abig difference in label counts.
+# TODO: Need to pack the sequence since there's a big difference in label counts.
 class LabelEncoder(nn.Module):
     def __init__(self, alpha, n_class):
         super(LabelEncoder, self).__init__()

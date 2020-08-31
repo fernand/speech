@@ -12,6 +12,39 @@ import net
 import data
 
 
+def get_linear_schedule_with_warmup(
+    optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
+):
+    """
+    Create a schedule with a learning rate that decreases linearly from the initial lr set in the optimizer to 0,
+    after a warmup period during which it increases linearly from 0 to the initial lr set in the optimizer.
+
+    Args:
+        optimizer (:class:`~torch.optim.Optimizer`):
+            The optimizer for which to schedule the learning rate.
+        num_warmup_steps (:obj:`int`):
+            The number of steps for the warmup phase.
+        num_training_steps (:obj:`int`):
+            The totale number of training steps.
+        last_epoch (:obj:`int`, `optional`, defaults to -1):
+            The index of the last epoch when resuming training.
+
+    Return:
+        :obj:`torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
+    """
+
+    def lr_lambda(current_step: int):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        return max(
+            0.0,
+            float(num_training_steps - current_step)
+            / float(max(1, num_training_steps - num_warmup_steps)),
+        )
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
+
+
 class IterMeter(object):
     """keeps track of total iterations"""
 
@@ -99,7 +132,6 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 test_loss += loss.item() / len(test_loader)
 
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
-
     print("Test set: Average loss: {:.4f}\n".format(test_loss))
 
 
@@ -121,7 +153,7 @@ def main(hparams, experiment):
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
         batch_size=hparams["batch_size"],
-        shuffle=False,
+        shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=5,
         pin_memory=True,
@@ -140,10 +172,13 @@ def main(hparams, experiment):
         model.parameters(), hparams["learning_rate"], weight_decay=1e-6
     )
     criterion = RNNTLoss(blank=0).cuda()
+    # scheduler = get_linear_schedule_with_warmup(
+    #     optimizer, 15000, hparams["epochs"] * len(train_loader)
+    # )
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
         max_lr=hparams["learning_rate"],
-        steps_per_epoch=int(len(train_loader)),
+        steps_per_epoch=len(train_loader),
         epochs=hparams["epochs"],
         anneal_strategy="linear",
     )
@@ -173,7 +208,7 @@ if __name__ == "__main__":
     hparams = {
         "alpha": 0.5,
         "shuffle": True,
-        "batch_size": 24,
+        "batch_size": 22,
         "epochs": 2,
         "learning_rate": 2.5e-3,
         "n_class": 29,
