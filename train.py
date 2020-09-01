@@ -74,7 +74,7 @@ def train(
 
             optimizer.zero_grad()
 
-            output = model(spectrograms, labels)  # B, T, U, n_class
+            output, _ = model(spectrograms, labels)  # B, T, U, n_vocab+1
             output = F.log_softmax(output, dim=3)
 
             act_lens = torch.full(
@@ -108,6 +108,7 @@ def train(
                 batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
+    torch.save(model.state_dict(), f"model_{epoch}.th")
 
 
 def test(model, test_loader, criterion, epoch, iter_meter, experiment):
@@ -122,7 +123,7 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 spectrograms = spectrograms.cuda()
                 labels = labels.cuda()
 
-                output = model(spectrograms, labels)  # B, T, U, n_class
+                output, h_enc = model(spectrograms, labels)  # B, T, U, n_vocab+1
                 output = F.log_softmax(output, dim=3)
 
                 act_lens = torch.full(
@@ -133,12 +134,11 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                 loss = criterion(output, labels, act_lens, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
-                output = output.cpu()
                 for j in range(output.size(0)):
                     target = data.text_transform.int_to_text(
-                        labels[j, : label_lengths[j]].tolist()
+                        labels[j, 1 : label_lengths[j] + 1].tolist()
                     )
-                    pred, _ = decoder.decode_static(output[j, :, :, :])
+                    pred = model.module.infer_greedy(h_enc[j])
                     pred = data.text_transform.int_to_text(pred)
                     test_cer.append(words.cer(target, pred))
                     test_wer.append(words.wer(target, pred))
@@ -173,14 +173,14 @@ def main(hparams, experiment):
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
         batch_size=10,
-        shuffle=False,
+        shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=5,
+        num_workers=2,
         pin_memory=True,
     )
 
-    model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_class"])
-    model = nn.DataParallel(model)
+    model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_vocab"])
+    # model = nn.DataParallel(model)
     model.cuda()
 
     # print(model)
@@ -216,15 +216,16 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        disabled=True,
+        # disabled=True,
     )
     hparams = {
         "alpha": 0.5,
         "shuffle": False,
         "batch_size": 22,
-        "epochs": 3,
+        "epochs": 1,
         "learning_rate": 2.5e-3,
-        "n_class": 29,
+        # Does not include the blank.
+        "n_vocab": 28,
         "n_feats": 80,
         "dropout": 0.0,
     }

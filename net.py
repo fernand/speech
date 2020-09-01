@@ -101,11 +101,12 @@ class ConvBlock(nn.Module):
 
 # TODO: Need to pack the sequence since there's a big difference in label counts.
 class LabelEncoder(nn.Module):
-    def __init__(self, alpha, n_class):
+    def __init__(self, alpha, n_vocab):
         super(LabelEncoder, self).__init__()
         n_embeds = int(640 * alpha)
         l1 = int(2048 * alpha)
-        self.embed = nn.Embedding(n_class, n_embeds)
+        # 0 is essentially the start of sequence token.
+        self.embed = nn.Embedding(n_vocab + 1, n_embeds, padding_idx=0)
         self.lstm = nn.LSTM(
             input_size=n_embeds, hidden_size=l1, num_layers=1, batch_first=True
         )
@@ -114,15 +115,16 @@ class LabelEncoder(nn.Module):
 
     def forward(self, y):
         y = self.embed(y)
-        y, _ = self.lstm(y)
+        y, hidden = self.lstm(y)
         y = self.layer_norm(y)
         y = self.projection(y)
-        return y
+        return y, hidden
 
 
 class ContextNet(nn.Module):
-    def __init__(self, alpha, n_feats, n_class):
+    def __init__(self, alpha, n_feats, n_vocab):
         super(ContextNet, self).__init__()
+        self.blank = 0
         l1 = int(256 * alpha)
         l2 = int(512 * alpha)
         l3 = int(640 * alpha)
@@ -145,16 +147,50 @@ class ContextNet(nn.Module):
             conv_blocks.append(ConvBlock(l2, l2, 1))
         conv_blocks.append(SingleConvBlock(l2, l3, 1))
         self.encoder = nn.Sequential(*conv_blocks)
-        self.label_encoder = LabelEncoder(alpha, n_class)
+        self.label_encoder = LabelEncoder(alpha, n_vocab)
         self.projection = nn.Linear(l3, l3)
-        self.classifier = nn.Linear(l3, n_class)
+        self.classifier = nn.Linear(l3, n_vocab + 1)
 
-    def forward(self, x, y):
-        x = self.encoder(x).transpose(1, 2)  # B, T, F
-        t_len = x.size(2)
-        y = self.label_encoder(y)  # B, U, F
-        x = x.unsqueeze(2)
-        y = y.unsqueeze(1)
+    def joint(self, x, y):
         out = torch.tanh(self.projection(x + y))
         out = self.classifier(out)
-        return out  # B, T, U, n_class
+        return out
+
+    def forward(self, x, y):
+        h_enc = self.encoder(x).transpose(1, 2)  # B, T, F
+        y, _ = self.label_encoder(y)  # B, U, F
+        x = h_enc.unsqueeze(2)
+        y = y.unsqueeze(1)
+        out = self.joint(x, y)
+        return out, h_enc  # out is B, T, U, n_vocab+1
+
+    # Needs to be fed self.encoder(x).transpose(1, 2)[i]
+    def infer_greedy(self, h):
+        """Greedy search implementation.
+        Args:
+            h (torch.Tensor): encoder hidden state sequences (Tmax, Henc)
+        Returns:
+            hyp (list of dicts): 1-best decoding results
+    """
+        hyp = {"score": 0.0, "yseq": [self.blank]}
+
+        # Start with the start of sentence token (which is 0)
+        sos_token = torch.tensor([0], dtype=torch.long).unsqueeze(0).cuda()
+        y, hidden = self.label_encoder.forward(sos_token)
+
+        for hi in h:
+            ytu = F.log_softmax(self.joint(hi, y[0]), dim=1)
+            logp, pred = torch.max(ytu, dim=1)
+            pred = int(pred)
+
+            if pred != self.blank:
+                hyp["yseq"].append(pred)
+                hyp["score"] += float(logp)
+                y = (
+                    torch.tensor([hyp["yseq"][-1]], dtype=torch.long)
+                    .unsqueeze(0)
+                    .cuda()
+                )
+                y, hidden = self.label_encoder.forward(y)
+        print(hyp)
+        return [hyp]

@@ -32,9 +32,9 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
             # self.paths = [t[0] for t in pickle.load(f)][:-1000]
             # Remove the shortest clips if they're batched up because they won't
             # have enough padding.
+            self.paths.reverse()
             if "train" in dataset_path:
-                self.paths = self.paths[:-1000]
-        # self.paths.reverse()
+                self.paths = self.paths[1000:]
 
     def __len__(self):
         return len(self.paths)
@@ -72,7 +72,7 @@ def collate_fn(data, data_type="train"):
         else:
             spec = valid_audio_transforms(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        label = torch.LongTensor(text_transform.text_to_int(utterance.lower()) + [0])
+        label = torch.LongTensor([0] + text_transform.text_to_int(utterance.lower()))
         labels.append(label)
         label_lengths.append(len(label) - 1)
 
