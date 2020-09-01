@@ -25,7 +25,7 @@ def get_linear_schedule_with_warmup(
         num_warmup_steps (:obj:`int`):
             The number of steps for the warmup phase.
         num_training_steps (:obj:`int`):
-            The totale number of training steps.
+            The total number of training steps.
         last_epoch (:obj:`int`, `optional`, defaults to -1):
             The index of the last epoch when resuming training.
 
@@ -59,7 +59,15 @@ class IterMeter(object):
 
 
 def train(
-    model, train_loader, criterion, optimizer, scheduler, epoch, iter_meter, experiment,
+    batch_size,
+    model,
+    train_loader,
+    criterion,
+    optimizer,
+    scheduler,
+    epoch,
+    iter_meter,
+    experiment,
 ):
     model.train()
     data_len = len(train_loader.dataset)
@@ -97,9 +105,9 @@ def train(
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                         epoch,
-                        batch_idx * len(spectrograms),
+                        batch_idx,
                         data_len,
-                        100.0 * batch_idx / len(train_loader),
+                        100.0 * batch_idx / data_len,
                         loss.item(),
                         time_for_100_batches,
                     )
@@ -110,7 +118,7 @@ def train(
     torch.save(model.state_dict(), f"model_{epoch}.pth")
 
 
-def test(model, test_loader, criterion, epoch, iter_meter, experiment):
+def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experiment):
     print("\nevaluating…")
     model.eval()
     test_loss = 0
@@ -163,12 +171,14 @@ def main(hparams, experiment):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
 
-    test_dataset = data.SortedTrainLibriSpeech("sorted_dev_clean_librispeech.pkl")
-    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl")
+    test_dataset = data.SortedTrainLibriSpeech(
+        "sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
+    )
+    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl", 6)
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
-        batch_size=hparams["batch_size"],
+        batch_size=None,
         shuffle=hparams["shuffle"],
         collate_fn=lambda x: data.collate_fn(x, "train"),
         num_workers=3,
@@ -176,7 +186,7 @@ def main(hparams, experiment):
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
-        batch_size=6,
+        batch_size=None,
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=2,
@@ -224,7 +234,7 @@ if __name__ == "__main__":
     )
     hparams = {
         "alpha": 0.5,
-        "shuffle": False,
+        "shuffle": True,
         "batch_size": 10,
         "epochs": 3,
         "learning_rate": 2.5e-3,

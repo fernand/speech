@@ -9,9 +9,9 @@ from torchaudio.datasets.utils import walk_files
 def get_librispeech_audio_files(prefix):
     datasets = [
         "dev-clean"
-        #"train-clean-100",
-        #"train-clean-360",
-        #"train-other-500",
+        # "train-clean-100",
+        # "train-clean-360",
+        # "train-other-500",
     ]
     dataset_paths = [os.path.join(prefix, "LibriSpeech", d) for d in datasets]
     audio_files = []
@@ -32,6 +32,6 @@ if __name__ == "__main__":
     audio_files = get_librispeech_audio_files("/data")
     durations = p.map(get_duration, audio_files)
     sorted_durations = sorted(zip(audio_files, durations), key=lambda t: t[1])
-    #with open("sorted_train_librispeech.pkl", "wb") as f:
+    # with open("sorted_train_librispeech.pkl", "wb") as f:
     with open("sorted_dev_clean_librispeech.pkl", "wb") as f:
         pickle.dump(sorted_durations, f)

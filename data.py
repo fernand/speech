@@ -23,19 +23,27 @@ valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
 text_transform = TextTransform()
 
 
+# TODO: Don't ignore the last unfilled batch.
 class SortedTrainLibriSpeech(torch.utils.data.Dataset):
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, batch_size):
         assert dataset_path.endswith(".pkl")
+        self.batch_size = batch_size
         with open(dataset_path, "rb") as f:
             self.paths = [t[0] for t in pickle.load(f)]
-            if "train" in dataset_path:
-                # Remove the longest and shortest clips.
-                self.paths = self.paths[17000:][:-1000]
+        if "train" in dataset_path:
+            # Remove the longest and shortest clips.
+            self.paths = self.paths[17000:][:-1000]
 
     def __len__(self):
-        return len(self.paths)
+        return len(self.paths) // self.batch_size
 
     def __getitem__(self, i):
+        return [
+            self.get_clip(j)
+            for j in range(i * self.batch_size, (i + 1) * self.batch_size)
+        ]
+
+    def get_clip(self, i):
         audio_path = self.paths[i]
         path, filename = os.path.split(audio_path)
         fileid = filename.split(".")[0]
