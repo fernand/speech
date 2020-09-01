@@ -73,6 +73,7 @@ def train(
     data_len = len(train_loader.dataset)
     start = time.time()
     batch_start = start
+    print("NUM BATCHES", data_len)
     with experiment.train():
         for batch_idx, batch in enumerate(train_loader):
             spectrograms, labels, label_lengths = batch
@@ -100,7 +101,7 @@ def train(
             optimizer.step()
             scheduler.step()
             iter_meter.step()
-            if batch_idx % 100 == 0 or batch_idx == data_len:
+            if batch_idx % 100 == 0:
                 time_for_100_batches = round(time.time() - batch_start)
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
@@ -146,7 +147,7 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
                     target = data.text_transform.int_to_text(
                         labels[j, 1 : label_lengths[j] + 1].tolist()
                     )
-                    hyp = model.infer_greedy(h_enc[j])
+                    hyp = model.module.infer_greedy(h_enc[j])
                     pred = data.text_transform.int_to_text(hyp["yseq"])
                     test_cer.append(words.cer(target, pred))
                     test_wer.append(words.wer(target, pred))
@@ -172,9 +173,9 @@ def main(hparams, experiment):
     torch.manual_seed(7)
 
     test_dataset = data.SortedTrainLibriSpeech(
-        "sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
+        "sorted_dev_clean_librispeech.pkl", 6
     )
-    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl", 6)
+    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl", hparams["batch_size"])
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -194,7 +195,7 @@ def main(hparams, experiment):
     )
 
     model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_vocab"])
-    # model = nn.DataParallel(model)
+    model = nn.DataParallel(model)
     model.cuda()
 
     # print(model)
@@ -213,6 +214,7 @@ def main(hparams, experiment):
     iter_meter = IterMeter()
     for epoch in range(1, hparams["epochs"] + 1):
         train(
+            hparams["batch_size"],
             model,
             train_loader,
             criterion,
@@ -222,7 +224,7 @@ def main(hparams, experiment):
             iter_meter,
             experiment,
         )
-        test(model, test_loader, criterion, epoch, iter_meter, experiment)
+        test(hparams["batch_size"], model, test_loader, criterion, epoch, iter_meter, experiment)
 
 
 if __name__ == "__main__":
@@ -235,9 +237,11 @@ if __name__ == "__main__":
     hparams = {
         "alpha": 0.5,
         "shuffle": True,
-        "batch_size": 10,
+        # "batch_size": 10,
+        "batch_size": 20,
         "epochs": 3,
-        "learning_rate": 2.5e-3,
+        #"learning_rate": 2.5e-3,
+        "learning_rate": 1e-3,
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": 80,
