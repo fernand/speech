@@ -8,7 +8,6 @@ import torch.nn.functional as F
 from warprnnt_pytorch import RNNTLoss
 
 import data
-import decoder
 import net
 import words
 
@@ -221,7 +220,7 @@ if __name__ == "__main__":
     hparams = {
         "alpha": 0.5,
         "shuffle": False,
-        "batch_size": 22,
+        "batch_size": 10,
         "epochs": 1,
         "learning_rate": 2.5e-3,
         # Does not include the blank.
