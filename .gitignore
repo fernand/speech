@@ -3,3 +3,5 @@ __pycache__
 custom
 *.pkl
 *.npy
+*.txt
+*.pth

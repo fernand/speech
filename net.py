@@ -192,5 +192,4 @@ class ContextNet(nn.Module):
                     .cuda()
                 )
                 y, hidden = self.label_encoder.forward(y)
-        print(hyp)
-        return [hyp]
+        return hyp

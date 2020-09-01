@@ -107,7 +107,7 @@ def train(
                 batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
-    torch.save(model.state_dict(), f"model_{epoch}.th")
+    torch.save(model.state_dict(), f"model_{epoch}.pth")
 
 
 def test(model, test_loader, criterion, epoch, iter_meter, experiment):
@@ -115,6 +115,7 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
     model.eval()
     test_loss = 0
     test_cer, test_wer = [], []
+    f = open(f"samples_{epoch}.txt", "w")
     with experiment.test():
         with torch.no_grad():
             for I, batch in enumerate(test_loader):
@@ -137,10 +138,14 @@ def test(model, test_loader, criterion, epoch, iter_meter, experiment):
                     target = data.text_transform.int_to_text(
                         labels[j, 1 : label_lengths[j] + 1].tolist()
                     )
-                    pred = model.module.infer_greedy(h_enc[j])
-                    pred = data.text_transform.int_to_text(pred)
+                    hyp = model.infer_greedy(h_enc[j])
+                    pred = data.text_transform.int_to_text(hyp["yseq"])
                     test_cer.append(words.cer(target, pred))
                     test_wer.append(words.wer(target, pred))
+                    if j == 0:
+                        f.write(target + "\n")
+                        f.write(pred + "\n\n")
+    f.close()
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
@@ -171,7 +176,7 @@ def main(hparams, experiment):
     )
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
-        batch_size=10,
+        batch_size=6,
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=2,
@@ -221,7 +226,7 @@ if __name__ == "__main__":
         "alpha": 0.5,
         "shuffle": False,
         "batch_size": 10,
-        "epochs": 1,
+        "epochs": 3,
         "learning_rate": 2.5e-3,
         # Does not include the blank.
         "n_vocab": 28,
