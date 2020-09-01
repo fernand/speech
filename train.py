@@ -5,7 +5,6 @@ import torch
 import torchaudio
 import torch.nn as nn
 import torch.nn.functional as F
-from warprnnt_pytorch import RNNTLoss
 
 import data
 import net
@@ -78,19 +77,19 @@ def train(
         for batch_idx, batch in enumerate(train_loader):
             spectrograms, labels, label_lengths = batch
             spectrograms = spectrograms.cuda()
-            labels = labels.cuda()
 
             optimizer.zero_grad()
 
-            output, _ = model(spectrograms, labels)  # B, T, U, n_vocab+1
-            output = F.log_softmax(output, dim=3)
+            output = model(spectrograms)  # B, T, n_vocab+1
+            output = F.log_softmax(output, dim=2)
+            output = output.transpose(0, 1)  # T, B, n_vocab+1
 
-            act_lens = torch.full(
-                (output.size(0),), output.size(1), dtype=torch.int32
+            input_lengths = torch.full(
+                (batch_size,), output.size(0), dtype=torch.int32
             ).cuda()
-            labels = labels.int().cuda()
             label_lengths = label_lengths.cuda()
-            loss = criterion(output, labels, act_lens, label_lengths)
+            labels = labels.cuda()
+            loss = criterion(output, labels, input_lengths, label_lengths)
             loss.backward()
 
             experiment.log_metric("loss", loss.item(), step=iter_meter.get())
@@ -103,6 +102,7 @@ def train(
             iter_meter.step()
             if batch_idx % 100 == 0:
                 time_for_100_batches = round(time.time() - batch_start)
+                print("Spec shape", spectrograms.shape, "Output T", output.size(0))
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                         epoch,
@@ -119,6 +119,24 @@ def train(
     torch.save(model.state_dict(), f"model_{epoch}.pth")
 
 
+def GreedyDecoder(output, labels, label_lengths, blank_label=0, collapse_repeated=True):
+    arg_maxes = torch.argmax(output, dim=2)
+    decodes = []
+    targets = []
+    for i, args in enumerate(arg_maxes):
+        decode = []
+        targets.append(
+            data.text_transform.int_to_text(labels[i][: label_lengths[i]].tolist())
+        )
+        for j, index in enumerate(args):
+            if index != blank_label:
+                if collapse_repeated and j != 0 and index == args[j - 1]:
+                    continue
+                decode.append(index.item())
+        decodes.append(data.text_transform.int_to_text(decode))
+    return decodes, targets
+
+
 def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experiment):
     print("\nevaluating…")
     model.eval()
@@ -130,30 +148,25 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
             for I, batch in enumerate(test_loader):
                 spectrograms, labels, label_lengths = batch
                 spectrograms = spectrograms.cuda()
-                labels = labels.cuda()
 
-                output, h_enc = model(spectrograms, labels)  # B, T, U, n_vocab+1
-                output = F.log_softmax(output, dim=3)
+                output = model(spectrograms)  # B, T, n_vocab+1
+                output = F.log_softmax(output, dim=2)
+                output = output.transpose(0, 1)  # T, B, n_vocab+1
 
-                act_lens = torch.full(
-                    (output.size(0),), output.size(1), dtype=torch.int32
+                input_lengths = torch.full(
+                    (batch_size,), output.size(0), dtype=torch.int32
                 ).cuda()
-                labels = labels.int().cuda()
                 label_lengths = label_lengths.cuda()
-                loss = criterion(output, labels, act_lens, label_lengths)
+                labels = labels.cuda()
+                loss = criterion(output, labels, input_lengths, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
-                for j in range(output.size(0)):
-                    target = data.text_transform.int_to_text(
-                        labels[j, 1 : label_lengths[j] + 1].tolist()
-                    )
-                    hyp = model.module.infer_greedy(h_enc[j])
-                    pred = data.text_transform.int_to_text(hyp["yseq"])
-                    test_cer.append(words.cer(target, pred))
-                    test_wer.append(words.wer(target, pred))
-                    if j == 0:
-                        f.write(target + "\n")
-                        f.write(pred + "\n\n")
+                decoded_preds, decoded_targets = GreedyDecoder(
+                    output.transpose(0, 1), labels, label_lengths
+                )
+                for j in range(len(decoded_preds)):
+                    test_cer.append(words.cer(decoded_targets[j], decoded_preds[j]))
+                    test_wer.append(words.wer(decoded_targets[j], decoded_preds[j]))
     f.close()
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
@@ -198,7 +211,7 @@ def main(hparams, experiment):
     )
 
     model = net.ContextNet(hparams["alpha"], hparams["n_feats"], hparams["n_vocab"])
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
     model.cuda()
 
     # print(model)
@@ -209,7 +222,7 @@ def main(hparams, experiment):
     optimizer = torch.optim.AdamW(
         model.parameters(), hparams["learning_rate"], weight_decay=1e-6
     )
-    criterion = RNNTLoss(blank=0).cuda()
+    criterion = torch.nn.CTCLoss(blank=0).cuda()
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 15000, hparams["epochs"] * len(train_loader)
     )
@@ -248,7 +261,6 @@ if __name__ == "__main__":
     hparams = {
         "alpha": 0.5,
         "shuffle": True,
-        # "batch_size": 10,
         "batch_size": 20,
         "epochs": 3,
         "learning_rate": 2.5e-3,
