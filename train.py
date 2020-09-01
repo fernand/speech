@@ -72,7 +72,6 @@ def train(
     data_len = len(train_loader.dataset)
     start = time.time()
     batch_start = start
-    print("NUM BATCHES", data_len)
     with experiment.train():
         for batch_idx, batch in enumerate(train_loader):
             spectrograms, labels, label_lengths = batch
@@ -102,7 +101,6 @@ def train(
             iter_meter.step()
             if batch_idx % 100 == 0:
                 time_for_100_batches = round(time.time() - batch_start)
-                print("Spec shape", spectrograms.shape, "Output T", output.size(0))
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                         epoch,
@@ -116,7 +114,7 @@ def train(
                 batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
-    torch.save(model.state_dict(), f"model_{epoch}.pth")
+    # torch.save(model.state_dict(), f"model_{epoch}.pth")
 
 
 def GreedyDecoder(output, labels, label_lengths, blank_label=0, collapse_repeated=True):
@@ -142,7 +140,6 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
     model.eval()
     test_loss = 0
     test_cer, test_wer = [], []
-    f = open(f"samples_{epoch}.txt", "w")
     with experiment.test():
         with torch.no_grad():
             for I, batch in enumerate(test_loader):
@@ -161,13 +158,15 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
                 loss = criterion(output, labels, input_lengths, label_lengths)
                 test_loss += loss.item() / len(test_loader)
 
+                output = output.cpu()
+                labels = labels.cpu()
+                label_lengths = label_lengths.cpu()
                 decoded_preds, decoded_targets = GreedyDecoder(
                     output.transpose(0, 1), labels, label_lengths
                 )
                 for j in range(len(decoded_preds)):
                     test_cer.append(words.cer(decoded_targets[j], decoded_preds[j]))
                     test_wer.append(words.wer(decoded_targets[j], decoded_preds[j]))
-    f.close()
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
@@ -262,8 +261,8 @@ if __name__ == "__main__":
         "alpha": 0.5,
         "shuffle": True,
         "batch_size": 20,
-        "epochs": 3,
-        "learning_rate": 2.5e-3,
+        "epochs": 5,
+        "learning_rate": 5e-2,
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": 80,
