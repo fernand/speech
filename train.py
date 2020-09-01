@@ -173,9 +173,11 @@ def main(hparams, experiment):
     torch.manual_seed(7)
 
     test_dataset = data.SortedTrainLibriSpeech(
-        "sorted_dev_clean_librispeech.pkl", 6
+        "sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
     )
-    train_dataset = data.SortedTrainLibriSpeech("sorted_train_librispeech.pkl", hparams["batch_size"])
+    train_dataset = data.SortedTrainLibriSpeech(
+        "sorted_train_librispeech.pkl", hparams["batch_size"]
+    )
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -188,6 +190,7 @@ def main(hparams, experiment):
     test_loader = torch.utils.data.DataLoader(
         dataset=test_dataset,
         batch_size=None,
+        # Also shuffling at the clip level in data.py
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=2,
@@ -224,7 +227,15 @@ def main(hparams, experiment):
             iter_meter,
             experiment,
         )
-        test(hparams["batch_size"], model, test_loader, criterion, epoch, iter_meter, experiment)
+        test(
+            hparams["batch_size"],
+            model,
+            test_loader,
+            criterion,
+            epoch,
+            iter_meter,
+            experiment,
+        )
 
 
 if __name__ == "__main__":
@@ -240,8 +251,7 @@ if __name__ == "__main__":
         # "batch_size": 10,
         "batch_size": 20,
         "epochs": 3,
-        #"learning_rate": 2.5e-3,
-        "learning_rate": 1e-3,
+        "learning_rate": 2.5e-3,
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": 80,

@@ -1,5 +1,6 @@
 import os
 import pickle
+import random
 
 import numpy as np
 import torch
@@ -10,14 +11,14 @@ from text import TextTransform
 
 train_audio_transforms = nn.Sequential(
     torchaudio.transforms.MelSpectrogram(
-        sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
+        sample_rate=16000, n_fft=400, hop_length=160, n_mels=80
     ),
     # torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
     # torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
-    sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
+    sample_rate=16000, n_fft=400, hop_length=160, n_mels=80
 )
 
 text_transform = TextTransform()
@@ -33,6 +34,8 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
         if "train" in dataset_path:
             # Remove the longest and shortest clips.
             self.paths = self.paths[17000:][:-1000]
+        else:
+            random.shuffle(self.paths)
 
     def __len__(self):
         return len(self.paths) // self.batch_size
@@ -52,7 +55,7 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
         file_text = speaker_id + "-" + chapter_id + ".trans.txt"
         file_text = os.path.join(path, file_text)
 
-        waveform, sample_rate = torchaudio.load(audio_path)
+        waveform, sample_rate = torchaudio.load(audio_path, normalization=True)
 
         with open(file_text) as f:
             for line in f:
