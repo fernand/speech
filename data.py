@@ -34,8 +34,6 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
         if "train" in dataset_path:
             # Remove the longest clips.
             self.paths = self.paths[:-1000]
-        else:
-            random.shuffle(self.paths)
 
     def __len__(self):
         return len(self.paths) // self.batch_size
