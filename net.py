@@ -80,7 +80,7 @@ class SpeechRecognitionModel(nn.Module):
         n_cnn_layers,
         n_rnn_layers,
         rnn_dim,
-        n_class,
+        n_vocab,
         n_feats,
         stride=2,
         dropout=0.1,
@@ -117,7 +117,7 @@ class SpeechRecognitionModel(nn.Module):
             nn.Linear(rnn_dim * 2, rnn_dim),  # birnn returns rnn_dim*2
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(rnn_dim, n_class),
+            nn.Linear(rnn_dim, n_vocab+1),
         )
 
     def forward(self, x):
