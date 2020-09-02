@@ -11,14 +11,14 @@ from text import TextTransform
 
 train_audio_transforms = nn.Sequential(
     torchaudio.transforms.MelSpectrogram(
-        sample_rate=16000, n_fft=400, hop_length=160, n_mels=40, power=1.0
+        sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
     ),
     torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
     torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
-    sample_rate=16000, n_fft=400, hop_length=160, n_mels=40, power=1.0
+    sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
 )
 
 text_transform = TextTransform()
@@ -83,7 +83,7 @@ def collate_fn(data, data_type="train"):
         label_lengths.append(len(label))
 
     spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
-    spectrograms = spectrograms.transpose(1, 2)
+    spectrograms = spectrograms.unsqueeze(1).transpose(2, 3)
     labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
 
     return spectrograms, labels, torch.IntTensor(label_lengths)
