@@ -11,6 +11,37 @@ import net
 import words
 
 
+def get_linear_schedule_with_warmup(
+    optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
+):
+    """
+    Create a schedule with a learning rate that decreases linearly from the initial lr set in the optimizer to 0,
+    after a warmup period during which it increases linearly from 0 to the initial lr set in the optimizer.
+    Args:
+        optimizer (:class:`~torch.optim.Optimizer`):
+            The optimizer for which to schedule the learning rate.
+        num_warmup_steps (:obj:`int`):
+            The number of steps for the warmup phase.
+        num_training_steps (:obj:`int`):
+            The total number of training steps.
+        last_epoch (:obj:`int`, `optional`, defaults to -1):
+            The index of the last epoch when resuming training.
+    Return:
+        :obj:`torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
+    """
+
+    def lr_lambda(current_step: int):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        return max(
+            0.0,
+            float(num_training_steps - current_step)
+            / float(max(1, num_training_steps - num_warmup_steps)),
+        )
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
+
+
 class IterMeter(object):
     """keeps track of total iterations"""
 
@@ -195,12 +226,8 @@ def main(hparams, experiment):
 
     optimizer = torch.optim.AdamW(model.parameters(), hparams["learning_rate"])
     criterion = torch.nn.CTCLoss(blank=0).cuda()
-    scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=hparams["learning_rate"],
-        steps_per_epoch=len(train_loader),
-        epochs=hparams["epochs"],
-        anneal_strategy="linear",
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, 5000, hparams["epochs"] * len(train_loader)
     )
 
     iter_meter = IterMeter()
@@ -238,7 +265,7 @@ if __name__ == "__main__":
         "shuffle": True,
         "batch_size": 32,
         "epochs": 10,
-        "learning_rate": 5e-4,
+        "learning_rate": 8e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 5,
         "rnn_dim": 512,
