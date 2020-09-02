@@ -227,7 +227,7 @@ def main(hparams, experiment):
     optimizer = torch.optim.AdamW(model.parameters(), hparams["learning_rate"])
     criterion = torch.nn.CTCLoss(blank=0).cuda()
     scheduler = get_linear_schedule_with_warmup(
-        optimizer, 5000, hparams["epochs"] * len(train_loader)
+        optimizer, 7000, hparams["epochs"] * len(train_loader)
     )
 
     iter_meter = IterMeter()
@@ -265,7 +265,7 @@ if __name__ == "__main__":
         "shuffle": True,
         "batch_size": 32,
         "epochs": 10,
-        "learning_rate": 8e-4,
+        "learning_rate": 5e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 5,
         "rnn_dim": 512,
