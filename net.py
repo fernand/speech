@@ -80,6 +80,7 @@ class SpeechRecognitionModel(nn.Module):
                 for _ in range(n_cnn_layers)
             ]
         )
+        # Technically the first layer should have rnn_dim size and not rnn_dim * 2
         self.birnn_layers = sru.SRU(
             input_size=n_feats * 32,
             proj_input_to_hidden_first=True,
@@ -106,6 +107,8 @@ class SpeechRecognitionModel(nn.Module):
         x = x.transpose(0, 2)  # (time, feature, batch)
         x = x.transpose(1, 2).contiguous()  # (time, batch, feature)
         x, _ = self.birnn_layers(x)  # (time, batch, feature)
+        # TODO: don't do nn_rnn_compatible_return then do it here to only have 1 contiguous.
+        # SRU return shape is 4D https://github.com/asappresearch/sru/blob/master/sru/sru_functional.py#L621
         x = x.transpose(0, 1).contiguous()
         x = self.classifier(x)
         return x

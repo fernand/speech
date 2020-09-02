@@ -106,7 +106,7 @@ def train(
 
             output = model(spectrograms)  # B, T, n_vocab+1
             output = F.log_softmax(output, dim=2)
-            output = output.transpose(0, 1)  # T, B, n_vocab+1
+            output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
 
             input_lengths = torch.full(
                 (batch_size,), output.size(0), dtype=torch.int32
@@ -173,7 +173,7 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
 
                 output = model(spectrograms)  # B, T, n_vocab+1
                 output = F.log_softmax(output, dim=2)
-                output = output.transpose(0, 1)  # T, B, n_vocab+1
+                output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
 
                 input_lengths = torch.full(
                     (batch_size,), output.size(0), dtype=torch.int32
@@ -292,7 +292,7 @@ if __name__ == "__main__":
         "shuffle": True,
         "batch_size": 32,
         "epochs": 10,
-        "learning_rate": 4e-4,
+        "learning_rate": 3e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 5,
         "rnn_dim": 512,
