@@ -11,14 +11,14 @@ from text import TextTransform
 
 train_audio_transforms = nn.Sequential(
     torchaudio.transforms.MelSpectrogram(
-        sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
+        sample_rate=16000, n_fft=400, hop_length=160, n_mels=40, power=1.0
     ),
-    # torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
-    # torchaudio.transforms.TimeMasking(time_mask_param=35),
+    torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
+    torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
-    sample_rate=16000, n_fft=400, hop_length=160, n_mels=80, power=1.0
+    sample_rate=16000, n_fft=400, hop_length=160, n_mels=40, power=1.0
 )
 
 text_transform = TextTransform()

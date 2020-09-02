@@ -16,7 +16,7 @@ class Swish(nn.Module):
 
 
 class SELayer(nn.Module):
-    def __init__(self, num_channels, dropout=0.0):
+    def __init__(self, num_channels):
         super(SELayer, self).__init__()
         self.layer1 = nn.Linear(num_channels, num_channels // 8)
         self.layer2 = nn.Linear(num_channels // 8, num_channels)
@@ -31,7 +31,7 @@ class SELayer(nn.Module):
 
 
 class SingleConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride, dropout=0.0):
+    def __init__(self, in_channels, out_channels, stride):
         super(SingleConvBlock, self).__init__()
         self.conv = nn.Conv1d(
             in_channels=in_channels,
@@ -41,7 +41,7 @@ class SingleConvBlock(nn.Module):
             padding=5 // 2,
         )
         self.bn = nn.BatchNorm1d(out_channels)
-        self.se_layer = SELayer(out_channels, dropout)
+        self.se_layer = SELayer(out_channels)
 
     def forward(self, x):
         x = self.conv(x)
@@ -52,7 +52,7 @@ class SingleConvBlock(nn.Module):
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride, dropout=0.0):
+    def __init__(self, in_channels, out_channels, stride):
         super(ConvBlock, self).__init__()
         layers = []
         for i in range(5):
@@ -90,7 +90,7 @@ class ConvBlock(nn.Module):
             stride=stride,
             groups=in_channels,
         )
-        self.se_layer = SELayer(out_channels, dropout)
+        self.se_layer = SELayer(out_channels)
 
     def forward(self, x):
         x_orig = x

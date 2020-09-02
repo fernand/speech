@@ -44,6 +44,24 @@ def get_linear_schedule_with_warmup(
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
+def get_constant_schedule(optimizer, last_epoch=-1):
+    """
+    Create a schedule with a constant learning rate, using the learning rate set in optimizer.
+
+    Args:
+        optimizer (:class:`~torch.optim.Optimizer`):
+            The optimizer for which to schedule the learning rate.
+        last_epoch (:obj:`int`, `optional`, defaults to -1):
+            The index of the last epoch when resuming training.
+
+    Return:
+        :obj:`torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
+    """
+    return torch.optim.lr_scheduler.LambdaLR(
+        optimizer, lambda _: 1, last_epoch=last_epoch
+    )
+
+
 class IterMeter(object):
     """keeps track of total iterations"""
 
@@ -218,10 +236,11 @@ def main(hparams, experiment):
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
-    optimizer = torch.optim.AdamW(
+    optimizer = torch.optim.Adam(
         model.parameters(), hparams["learning_rate"], weight_decay=1e-6
     )
     criterion = torch.nn.CTCLoss(blank=0).cuda()
+    # scheduler = get_constant_schedule(optimizer)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 15000, hparams["epochs"] * len(train_loader)
     )
@@ -258,14 +277,13 @@ if __name__ == "__main__":
         # disabled=True,
     )
     hparams = {
-        "alpha": 0.5,
+        "alpha": 1.0,
         "shuffle": True,
-        "batch_size": 20,
-        "epochs": 5,
-        "learning_rate": 5e-2,
+        "batch_size": 10,
+        "epochs": 3,
+        "learning_rate": 2.5e-2,
         # Does not include the blank.
         "n_vocab": 28,
-        "n_feats": 80,
-        "dropout": 0.0,
+        "n_feats": 40,
     }
     main(hparams, experiment)
