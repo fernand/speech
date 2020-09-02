@@ -32,8 +32,8 @@ class SortedTrainLibriSpeech(torch.utils.data.Dataset):
         with open(dataset_path, "rb") as f:
             self.paths = [t[0] for t in pickle.load(f)]
         if "train" in dataset_path:
-            # Remove the longest and shortest clips.
-            self.paths = self.paths[17000:][:-1000]
+            # Remove the longest clips.
+            self.paths = self.paths[:-1000]
         else:
             random.shuffle(self.paths)
 
