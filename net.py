@@ -116,7 +116,7 @@ class SpeechRecognitionModel(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(rnn_dim * 2, rnn_dim),  # birnn returns rnn_dim*2
             nn.GELU(),
-            nn.Dropout(dropout),
+            # nn.Dropout(dropout),
             nn.Linear(rnn_dim, n_vocab + 1),
         )
 

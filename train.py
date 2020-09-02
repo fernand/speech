@@ -42,6 +42,33 @@ def get_linear_schedule_with_warmup(
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
+def get_constant_schedule_with_warmup(optimizer, num_warmup_steps, last_epoch=-1):
+    """
+    Create a schedule with a constant learning rate preceded by a warmup period during which the learning rate
+    increases linearly between 0 and the initial lr set in the optimizer.
+
+    Args:
+        optimizer (:class:`~torch.optim.Optimizer`):
+            The optimizer for which to schedule the learning rate.
+        num_warmup_steps (:obj:`int`):
+            The number of steps for the warmup phase.
+        last_epoch (:obj:`int`, `optional`, defaults to -1):
+            The index of the last epoch when resuming training.
+
+    Return:
+        :obj:`torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
+    """
+
+    def lr_lambda(current_step: int):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1.0, num_warmup_steps))
+        return 1.0
+
+    return torch.optim.lr_scheduler.LambdaLR(
+        optimizer, lr_lambda, last_epoch=last_epoch
+    )
+
+
 class IterMeter(object):
     """keeps track of total iterations"""
 
@@ -265,7 +292,7 @@ if __name__ == "__main__":
         "shuffle": True,
         "batch_size": 32,
         "epochs": 10,
-        "learning_rate": 5e-4,
+        "learning_rate": 4e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 5,
         "rnn_dim": 512,
