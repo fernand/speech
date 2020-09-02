@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import sru
 
 
 class CNNLayerNorm(nn.Module):
@@ -50,28 +51,6 @@ class ResidualCNN(nn.Module):
         return x  # (batch, channel, feature, time)
 
 
-class BidirectionalGRU(nn.Module):
-    def __init__(self, rnn_dim, hidden_size, dropout, batch_first):
-        super(BidirectionalGRU, self).__init__()
-
-        self.BiGRU = nn.GRU(
-            input_size=rnn_dim,
-            hidden_size=hidden_size,
-            num_layers=1,
-            batch_first=batch_first,
-            bidirectional=True,
-        )
-        self.layer_norm = nn.LayerNorm(rnn_dim)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x):
-        x = self.layer_norm(x)
-        x = F.gelu(x)
-        x, _ = self.BiGRU(x)
-        x = self.dropout(x)
-        return x
-
-
 class SpeechRecognitionModel(nn.Module):
     """Speech Recognition Model Inspired by DeepSpeech 2"""
 
@@ -101,17 +80,16 @@ class SpeechRecognitionModel(nn.Module):
                 for _ in range(n_cnn_layers)
             ]
         )
-        self.fully_connected = nn.Linear(n_feats * 32, rnn_dim)
-        self.birnn_layers = nn.Sequential(
-            *[
-                BidirectionalGRU(
-                    rnn_dim=rnn_dim if i == 0 else rnn_dim * 2,
-                    hidden_size=rnn_dim,
-                    dropout=dropout,
-                    batch_first=i == 0,
-                )
-                for i in range(n_rnn_layers)
-            ]
+        self.birnn_layers = sru.SRU(
+            input_size=n_feats * 32,
+            proj_input_to_hidden_first=True,
+            hidden_size=rnn_dim,
+            num_layers=n_rnn_layers,
+            rnn_dropout=dropout,
+            layer_norm=True,
+            use_tanh=True,
+            bidirectional=True,
+            nn_rnn_compatible_return=True,
         )
         self.classifier = nn.Sequential(
             nn.Linear(rnn_dim * 2, rnn_dim),  # birnn returns rnn_dim*2
@@ -125,8 +103,9 @@ class SpeechRecognitionModel(nn.Module):
         x = self.rescnn_layers(x)
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # (batch, feature, time)
-        x = x.transpose(1, 2)  # (batch, time, feature)
-        x = self.fully_connected(x)
-        x = self.birnn_layers(x)
+        x = x.transpose(0, 2)  # (time, feature, batch)
+        x = x.transpose(1, 2).contiguous()  # (time, batch, feature)
+        x, _ = self.birnn_layers(x)  # (time, batch, feature)
+        x = x.transpose(0, 1).contiguous()
         x = self.classifier(x)
         return x

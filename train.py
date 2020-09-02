@@ -299,6 +299,6 @@ if __name__ == "__main__":
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
-        "n_feats": 80,
+        "n_feats": data.N_MELS,
     }
     main(hparams, experiment)
