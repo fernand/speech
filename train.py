@@ -193,9 +193,7 @@ def main(hparams, experiment):
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
-    optimizer = torch.optim.Adam(
-        model.parameters(), hparams["learning_rate"], weight_decay=1e-6
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), hparams["learning_rate"])
     criterion = torch.nn.CTCLoss(blank=0).cuda()
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
         optimizer,
