@@ -176,7 +176,7 @@ def main(hparams, experiment):
         pin_memory=True,
     )
 
-    model = net.SpeechRecognitionModel(
+    model = net.SRModel(
         hparams["n_cnn_layers"],
         hparams["n_rnn_layers"],
         hparams["rnn_dim"],
