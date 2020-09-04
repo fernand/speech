@@ -104,8 +104,7 @@ class SpeechRecognitionModel(nn.Module):
         x = self.rescnn_layers(x)
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # (batch, feature, time)
-        x = x.transpose(0, 2)  # (time, feature, batch)
-        x = x.transpose(1, 2).contiguous()  # (time, batch, feature)
+        x = x.permute(2, 0, 1).contiguous() # (time, feature, batch)
         x, _ = self.birnn_layers(x)  # (time, batch, feature)
         # TODO: don't do nn_rnn_compatible_return then do it here to only have 1 contiguous.
         # SRU return shape is 4D https://github.com/asappresearch/sru/blob/master/sru/sru_functional.py#L621
