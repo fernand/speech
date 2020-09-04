@@ -1,6 +1,4 @@
 class TextTransform:
-    """Maps characters to integers and vice versa"""
-
     def __init__(self):
         char_map_str = """
         <BLANK> 0

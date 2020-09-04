@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 import data
 import net
-import words
+import decoder
 
 
 def get_linear_schedule_with_warmup(
@@ -48,6 +48,7 @@ def train(
     scheduler,
     epoch,
     iter_meter,
+    num_epochs,
     experiment,
 ):
     model.train()
@@ -96,25 +97,9 @@ def train(
                 batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
-    # torch.save(model.state_dict(), f"model_{epoch}.pth")
-
-
-def GreedyDecoder(output, labels, label_lengths, blank_label=0, collapse_repeated=True):
-    arg_maxes = torch.argmax(output, dim=2)
-    decodes = []
-    targets = []
-    for i, args in enumerate(arg_maxes):
-        decode = []
-        targets.append(
-            data.text_transform.int_to_text(labels[i][: label_lengths[i]].tolist())
-        )
-        for j, index in enumerate(args):
-            if index != blank_label:
-                if collapse_repeated and j != 0 and index == args[j - 1]:
-                    continue
-                decode.append(index.item())
-        decodes.append(data.text_transform.int_to_text(decode))
-    return decodes, targets
+    if epoch == 1 or epoch == num_epochs:
+        exp_id = experiment.url.split("/")[-1]
+        torch.save(model.state_dict(), f"model_{exp_id}_{epoch}.pth")
 
 
 def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experiment):
@@ -143,12 +128,12 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
                 output = output.cpu()
                 labels = labels.cpu()
                 label_lengths = label_lengths.cpu()
-                decoded_preds, decoded_targets = GreedyDecoder(
+                decoded_preds, decoded_targets = decoder.greedy_decoder(
                     output.transpose(0, 1), labels, label_lengths
                 )
                 for j in range(len(decoded_preds)):
-                    test_cer.append(words.cer(decoded_targets[j], decoded_preds[j]))
-                    test_wer.append(words.wer(decoded_targets[j], decoded_preds[j]))
+                    test_cer.append(decoder.cer(decoded_targets[j], decoded_preds[j]))
+                    test_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
@@ -225,6 +210,7 @@ def main(hparams, experiment):
             scheduler,
             epoch,
             iter_meter,
+            hparams["epochs"],
             experiment,
         )
         test(
