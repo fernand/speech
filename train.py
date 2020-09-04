@@ -26,17 +26,6 @@ def get_linear_schedule_with_warmup(
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
-def get_constant_schedule_with_warmup(optimizer, num_warmup_steps, last_epoch=-1):
-    def lr_lambda(current_step: int):
-        if current_step < num_warmup_steps:
-            return float(current_step) / float(max(1.0, num_warmup_steps))
-        return 1.0
-
-    return torch.optim.lr_scheduler.LambdaLR(
-        optimizer, lr_lambda, last_epoch=last_epoch
-    )
-
-
 class IterMeter(object):
     """keeps track of total iterations"""
 
