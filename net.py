@@ -40,11 +40,11 @@ class ResidualCNN(nn.Module):
     def forward(self, x):
         residual = x  # (batch, channel, feature, time)
         x = self.layer_norm1(x)
-        x = F.gelu(x)
+        x = F.relu(x)
         x = self.dropout1(x)
         x = self.cnn1(x)
         x = self.layer_norm2(x)
-        x = F.gelu(x)
+        x = F.relu(x)
         x = self.dropout2(x)
         x = self.cnn2(x)
         x += residual
@@ -80,7 +80,6 @@ class SpeechRecognitionModel(nn.Module):
                 for _ in range(n_cnn_layers)
             ]
         )
-        # Technically the first layer should have rnn_dim size and not rnn_dim * 2
         self.birnn_layers = sru.SRU(
             input_size=n_feats * 32,
             proj_input_to_hidden_first=True,
@@ -93,8 +92,9 @@ class SpeechRecognitionModel(nn.Module):
             nn_rnn_compatible_return=True,
         )
         self.classifier = nn.Sequential(
+            nn.LayerNorm(rnn_dim * 2),
             nn.Linear(rnn_dim * 2, rnn_dim),  # birnn returns rnn_dim*2
-            nn.GELU(),
+            nn.ReLU(),
             # nn.Dropout(dropout),
             nn.Linear(rnn_dim, n_vocab + 1),
         )
@@ -104,7 +104,7 @@ class SpeechRecognitionModel(nn.Module):
         x = self.rescnn_layers(x)
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # (batch, feature, time)
-        x = x.permute(2, 0, 1).contiguous() # (time, feature, batch)
+        x = x.permute(2, 0, 1).contiguous()  # (time, feature, batch)
         x, _ = self.birnn_layers(x)  # (time, batch, feature)
         # TODO: don't do nn_rnn_compatible_return then do it here to only have 1 contiguous.
         # SRU return shape is 4D https://github.com/asappresearch/sru/blob/master/sru/sru_functional.py#L621
