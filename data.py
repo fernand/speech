@@ -25,7 +25,6 @@ valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
 text_transform = TextTransform()
 
 
-# TODO: Don't ignore the last unfilled batch.
 class SortedTrainLibriSpeech(torch.utils.data.Dataset):
     def __init__(self, dataset_path, batch_size):
         assert dataset_path.endswith(".pkl")

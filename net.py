@@ -50,7 +50,7 @@ class SRModel(nn.Module):
         super().__init__()
         n_feats = n_feats // stride
         self.stride = stride
-        self.cnn = nn.Conv2d(1, 32, 3, stride=stride, padding=3 // stride)
+        self.cnn = nn.Conv2d(1, 32, 3, stride=stride, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
             *[
                 ResidualBlock(32, 32, kernel=3, stride=1, n_feats=n_feats)
@@ -70,9 +70,8 @@ class SRModel(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.LayerNorm(rnn_dim * 2),
-            nn.Linear(rnn_dim * 2, rnn_dim, bias=False),  # birnn returns rnn_dim*2
+            nn.Linear(rnn_dim * 2, rnn_dim, bias=False),
             nn.ReLU(inplace=True),
-            # nn.Dropout(dropout),
             nn.Linear(rnn_dim, n_vocab + 1, bias=False),
         )
 
