@@ -1,6 +1,7 @@
 import time
 
 from comet_ml import Experiment
+import apex
 import torch
 import torchaudio
 import torch.nn as nn
@@ -72,7 +73,8 @@ def train(
             label_lengths = label_lengths.cuda()
             labels = labels.cuda()
             loss = criterion(output, labels, input_lengths, label_lengths)
-            loss.backward()
+            with apex.amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
 
             experiment.log_metric("loss", loss.item(), step=iter_meter.get())
             experiment.log_metric(
@@ -185,15 +187,21 @@ def main(hparams, experiment):
         2,
         hparams["dropout"],
     )
-    model = nn.DataParallel(model)
     model.cuda()
+    optimizer = apex.optimizers.FusedAdam(
+        model.parameters(),
+        lr=hparams["learning_rate"],
+        adam_w_mode=True,
+        weight_decay=0.01,
+        # Different than default Pytorch.
+        amsgrad=False,
+    )
+    model, optimizer = apex.amp.initialize(model, optimizer, opt_level="O2")
 
-    # print(model)
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
-    optimizer = torch.optim.AdamW(model.parameters(), hparams["learning_rate"])
     criterion = torch.nn.CTCLoss(blank=0).cuda()
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000, hparams["epochs"] * len(train_loader)
