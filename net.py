@@ -5,13 +5,13 @@ import sru
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel, stride, n_feats):
+    def __init__(self, in_channels, out_channels, stride, kernel_s):
         super().__init__()
         self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel, stride, padding=kernel // 2
+            in_channels, out_channels, kernel_s, stride, padding=kernel_s // 2
         )
         self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel, stride, padding=kernel // 2
+            out_channels, out_channels, kernel_s, stride, padding=kernel_s // 2
         )
         self.relu = nn.ReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_channels)
@@ -52,10 +52,7 @@ class SRModel(nn.Module):
         self.stride = stride
         self.cnn = nn.Conv2d(1, 32, 3, stride=stride, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
-            *[
-                ResidualBlock(32, 32, kernel=3, stride=1, n_feats=n_feats)
-                for _ in range(n_cnn_layers)
-            ]
+            *[ResidualBlock(32, 32, stride=1, kernel_s=3) for _ in range(n_cnn_layers)]
         )
         self.birnn_layers = sru.SRU(
             input_size=n_feats * 32,
