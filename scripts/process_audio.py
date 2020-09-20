@@ -1,6 +1,8 @@
+import itertools
+import json
 import os
 import re
-import itertools
+import random
 import tempfile
 
 import aeneas.task
@@ -10,10 +12,10 @@ import sox
 
 TAG_REGEXP = re.compile(r"<.*?>")
 NAME_REGEXP = re.compile(r"([A-z]+\:)|(\([A-z]+\))")
-PUNCT_REGEXP = re.compile(r"[\,\.\-\"!]")
+PUNCT_REGEXP = re.compile(r"[\,\.\-\"\!\?]")
 MULTI_SPACE_REGEXP = re.compile(r"\s+")
 
-# 01:02:51,435 --> 01:02:53,635
+# example for s: 01:02:51,435
 def time_to_seconds(s):
     h, m, sm = s.split(":")
     s, ms = sm.split(",")
@@ -68,7 +70,7 @@ def get_transcript_chunks(transcripts):
     return chunks
 
 
-def split_audio(audio_f, transcript_chunks, output_dir):
+def split_audio_to_chunks(audio_f, transcript_chunks, output_dir):
     sr, y = scipy.io.wavfile.read(audio_f)
     assert sr == 16000
     outputs = []
@@ -83,6 +85,23 @@ def split_audio(audio_f, transcript_chunks, output_dir):
         )
         tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
         outputs.append((chunk[0][0], output_f, "\n".join([tr[2] for tr in chunk])))
+    return outputs
+
+
+def split_chunk_to_uterances(audio_f, fragments, output_dir):
+    sr, y = scipy.io.wavfile.read(audio_f)
+    os.remove(audio_f)
+    assert sr == 16000
+    outputs = []
+    for i, fragment in enumerate(fragments):
+        start, end = fragment.begin, fragment.end
+        tfm = sox.Transformer()
+        tfm.trim(start, end)
+        output_f = os.path.join(
+            output_dir, os.path.basename(audio_f).split(".")[0] + f"_{i}.wav"
+        )
+        tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
+        outputs.append((output_f, fragment.text))
     return outputs
 
 
@@ -101,17 +120,24 @@ def align_audio(audio_f, transcript_lines):
 
 if __name__ == "__main__":
     f_id = "0_4_93"
-    output_dir = "/home/fernand/Downloads"
-    audio_f = f"/home/fernand/Downloads/{f_id}.wav"
-    transcript_f = f"/home/fernand/Downloads/{f_id}.srt"
+    audio_dir = "/home/fernand/audio/"
+    audio_f = os.path.join(audio_dir, f"{f_id}.wav")
+    transcript_f = os.path.join(audio_dir, f"{f_id}.srt")
     transcripts = parse_srt(transcript_f)
     chunks = get_transcript_chunks(transcripts)
-    # with open("transcript.txt", "w") as f:
-    #     f.write("\n".join([str(tr) for tr in transcripts]))
-    outputs = split_audio(audio_f, chunks, output_dir)
+    outputs = split_audio_to_chunks(audio_f, chunks, audio_dir)
+    uterances = []
     for abs_start, audio_chunk_f, transcript in outputs:
         sync_map = align_audio(audio_chunk_f, transcript)
         fragments = sync_map.leaves(fragment_type=0)
-        for fragment in fragments:
-            print(abs_start, fragment, fragment.text_fragment)
-        print("======================================")
+        uterances.extend(split_chunk_to_uterances(audio_chunk_f, fragments, audio_dir))
+    output_f = os.path.join(audio_dir, "uterances.jsonl")
+    if os.path.exists(output_f):
+        os.remove(output_f)
+    random.shuffle(uterances)
+    with open(output_f, "w") as f:
+        for uterance in uterances:
+            file = os.path.basename(uterance[0])
+            url = "http://192.168.1.21:8081/" + file
+            js = {"audio": url, "transcript": uterance[1]}
+            f.write(json.dumps(js) + "\n")
