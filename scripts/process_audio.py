@@ -55,9 +55,12 @@ def parse_srt(srt_f):
         transcript = " ".join([c.strip() for c in chunk[2:]])
         current_lines = set(chunk[2:])
         # Ignore transcripts which overlap on multiple positions.
-        if i > 0 and len(current_lines.intersection(prev_lines)) > 0:
-            transcripts.pop()
+        if len(current_lines.intersection(prev_lines)) > 0:
+            if len(transcripts) > 0:
+                transcripts.pop()
+            prev_lines = current_lines
             continue
+        prev_lines = current_lines
         if "[" in transcript or ">>" in transcript:
             continue
         transcript = transcript.lower()
@@ -66,7 +69,6 @@ def parse_srt(srt_f):
         transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, "", transcript)
         transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
         transcripts.append((start, end, transcript))
-        prev_lines = current_lines
     f.close()
     return transcripts
 
@@ -180,9 +182,13 @@ def to_jsonl(uterances, output_f):
 
 
 def process_file(audio_f, output_dir):
-    wav_f = ac3_to_wav(audio_f, output_dir)
     srt_f = audio_f.split(".")[0] + ".srt"
     transcripts = parse_srt(srt_f)
+    if len(transcripts) == 0:
+        return ()
+    wav_f = ac3_to_wav(audio_f, output_dir)
+    if not os.path.exists(wav_f):
+        return ()
     chunks = get_transcript_chunks(transcripts)
     outputs = split_audio_to_chunks(wav_f, chunks, output_dir)
     os.remove(wav_f)
@@ -203,5 +209,6 @@ if __name__ == "__main__":
     audio_files = list_input_audio_files(input_dirs)
     p = multiprocessing.Pool(6)
     res = p.starmap(process_file, [(f, output_dir) for f in audio_files])
-    with open("/data/clean/manifest.pkl", "rb") as f:
+    res = [t for t in res if t != ()]
+    with open("/data/clean/manifest.pkl", "wb") as f:
         pickle.dump(res, f)
