@@ -5,3 +5,5 @@ custom
 *.npy
 *.txt
 *.pth
+*.model
+silero-models

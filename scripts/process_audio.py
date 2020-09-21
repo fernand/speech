@@ -1,8 +1,12 @@
+import hashlib
 import itertools
 import json
+import multiprocessing
 import os
+import pickle
 import re
 import random
+import subprocess
 import tempfile
 
 import aeneas.task
@@ -12,8 +16,21 @@ import sox
 
 TAG_REGEXP = re.compile(r"<.*?>")
 NAME_REGEXP = re.compile(r"([A-z]+\:)|(\([A-z]+\))")
-PUNCT_REGEXP = re.compile(r"[\,\.\-\"\!\?]")
+NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
 MULTI_SPACE_REGEXP = re.compile(r"\s+")
+
+
+def list_input_audio_files(input_dirs):
+    files = []
+    for input_dir in input_dirs:
+        dir_files = [
+            os.path.join(input_dir, f)
+            for f in os.listdir(input_dir)
+            if f.endswith(".ac3")
+        ]
+        files.extend(dir_files)
+    return files
+
 
 # example for s: 01:02:51,435
 def time_to_seconds(s):
@@ -37,6 +54,7 @@ def parse_srt(srt_f):
         start, end = map(time_to_seconds, start_end)
         transcript = " ".join([c.strip() for c in chunk[2:]])
         current_lines = set(chunk[2:])
+        # Ignore transcripts which overlap on multiple positions.
         if i > 0 and len(current_lines.intersection(prev_lines)) > 0:
             transcripts.pop()
             continue
@@ -45,7 +63,7 @@ def parse_srt(srt_f):
         transcript = transcript.lower()
         transcript = re.sub(TAG_REGEXP, "", transcript)
         transcript = re.sub(NAME_REGEXP, "", transcript)
-        transcript = re.sub(PUNCT_REGEXP, "", transcript)
+        transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, "", transcript)
         transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
         transcripts.append((start, end, transcript))
         prev_lines = current_lines
@@ -68,6 +86,32 @@ def get_transcript_chunks(transcripts):
         prev_end = tr[1]
     chunks.append(current_chunk)
     return chunks
+
+
+def ac3_to_wav(audio_f, output_dir):
+    f_id = audio_f.strip(".ac3")
+    f_hash = hashlib.sha1(f_id.encode("utf-8")).hexdigest()
+    output_f = os.path.join(output_dir, f_hash + ".wav")
+    ffmpeg = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "panic",
+        "-i",
+        audio_f,
+        "-acodec",
+        "pcm_s16le",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        output_f,
+    ]
+    p = subprocess.Popen(ffmpeg, stderr=subprocess.PIPE)
+    _, stderr = p.communicate()
+    if len(stderr) > 0:
+        print(audio_f, stderr)
+    return output_f
 
 
 def split_audio_to_chunks(audio_f, transcript_chunks, output_dir):
@@ -94,14 +138,17 @@ def split_chunk_to_uterances(audio_f, fragments, output_dir):
     assert sr == 16000
     outputs = []
     for i, fragment in enumerate(fragments):
-        start, end = fragment.begin, fragment.end
+        start, end = float(str(fragment.begin)), float(str(fragment.end))
+        # Ignore utterances shorter than 1 second
+        if end < start + 1.0:
+            continue
         tfm = sox.Transformer()
         tfm.trim(start, end)
         output_f = os.path.join(
             output_dir, os.path.basename(audio_f).split(".")[0] + f"_{i}.wav"
         )
         tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
-        outputs.append((output_f, fragment.text))
+        outputs.append((output_f, fragment.text, end - start))
     return outputs
 
 
@@ -118,20 +165,9 @@ def align_audio(audio_f, transcript_lines):
     return task.sync_map
 
 
-if __name__ == "__main__":
-    f_id = "0_4_93"
-    audio_dir = "/home/fernand/audio/"
-    audio_f = os.path.join(audio_dir, f"{f_id}.wav")
-    transcript_f = os.path.join(audio_dir, f"{f_id}.srt")
-    transcripts = parse_srt(transcript_f)
-    chunks = get_transcript_chunks(transcripts)
-    outputs = split_audio_to_chunks(audio_f, chunks, audio_dir)
-    uterances = []
-    for abs_start, audio_chunk_f, transcript in outputs:
-        sync_map = align_audio(audio_chunk_f, transcript)
-        fragments = sync_map.leaves(fragment_type=0)
-        uterances.extend(split_chunk_to_uterances(audio_chunk_f, fragments, audio_dir))
-    output_f = os.path.join(audio_dir, "uterances.jsonl")
+# prodigy audio.transcribe uterances audio/uterances.jsonl --loader jsonl
+# python -m http.server 8081 --bind 192.168.1.21
+def to_jsonl(uterances, output_f):
     if os.path.exists(output_f):
         os.remove(output_f)
     random.shuffle(uterances)
@@ -141,3 +177,30 @@ if __name__ == "__main__":
             url = "http://192.168.1.21:8081/" + file
             js = {"audio": url, "transcript": uterance[1]}
             f.write(json.dumps(js) + "\n")
+
+
+def process_file(audio_f, output_dir):
+    wav_f = ac3_to_wav(audio_f, output_dir)
+    srt_f = audio_f.split(".")[0] + ".srt"
+    transcripts = parse_srt(srt_f)
+    chunks = get_transcript_chunks(transcripts)
+    outputs = split_audio_to_chunks(wav_f, chunks, output_dir)
+    os.remove(wav_f)
+    utterances = []
+    for _, audio_chunk_f, transcript in outputs:
+        sync_map = align_audio(audio_chunk_f, transcript)
+        fragments = sync_map.leaves(fragment_type=0)
+        utterances.extend(
+            split_chunk_to_uterances(audio_chunk_f, fragments, output_dir)
+        )
+    return audio_f, utterances
+
+
+if __name__ == "__main__":
+    input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
+    output_dir = "/data/clean"
+    audio_files = list_input_audio_files(input_dirs)
+    p = multiprocessing.Pool(6)
+    res = p.starmap(process_file, [(f, output_dir) for f in audio_files])
+    with open("/data/clean/manifest.pkl", "rb") as f:
+        pickle.dump(res, f)
