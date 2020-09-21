@@ -116,4 +116,4 @@ def recording_loop(clip_i, adapter, frequency, programs):
 if __name__ == "__main__":
     adapter = int(sys.argv[1])
     frequency, programs = list(FREQUENCIES.items())[adapter]
-    recording_loop(108, adapter, frequency, [str(p) for p in programs])
+    recording_loop(0, adapter, frequency, [str(p) for p in programs])
