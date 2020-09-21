@@ -134,9 +134,21 @@ def split_audio_to_chunks(audio_f, transcript_chunks, output_dir):
     return outputs
 
 
+def align_audio(audio_f, transcript_lines):
+    tmp_txt = tempfile.NamedTemporaryFile(delete=False)
+    tmp_txt.write(transcript_lines.encode("utf-8"))
+    tmp_txt.close()
+    config = "task_language=en|is_text_type=plain|os_task_file_format=txt"
+    task = aeneas.task.Task(config_string=config)
+    task.audio_file_path_absolute = audio_f
+    task.text_file_path_absolute = tmp_txt.name
+    aeneas.executetask.ExecuteTask(task).execute()
+    os.remove(tmp_txt.name)
+    return task.sync_map
+
+
 def split_chunk_to_uterances(audio_f, fragments, output_dir):
     sr, y = scipy.io.wavfile.read(audio_f)
-    os.remove(audio_f)
     assert sr == 16000
     outputs = []
     for i, fragment in enumerate(fragments):
@@ -152,19 +164,6 @@ def split_chunk_to_uterances(audio_f, fragments, output_dir):
         tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
         outputs.append((output_f, fragment.text, end - start))
     return outputs
-
-
-def align_audio(audio_f, transcript_lines):
-    tmp_txt = tempfile.NamedTemporaryFile(delete=False)
-    tmp_txt.write(transcript_lines.encode("utf-8"))
-    tmp_txt.close()
-    config = "task_language=en|is_text_type=plain|os_task_file_format=txt"
-    task = aeneas.task.Task(config_string=config)
-    task.audio_file_path_absolute = audio_f
-    task.text_file_path_absolute = tmp_txt.name
-    aeneas.executetask.ExecuteTask(task).execute()
-    os.remove(tmp_txt.name)
-    return task.sync_map
 
 
 # prodigy audio.transcribe uterances audio/uterances.jsonl --loader jsonl
