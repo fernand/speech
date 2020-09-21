@@ -1,4 +1,3 @@
-import hashlib
 import itertools
 import json
 import multiprocessing
@@ -8,6 +7,7 @@ import re
 import random
 import subprocess
 import tempfile
+import uuid
 
 import aeneas.task
 import aeneas.executetask
@@ -92,9 +92,7 @@ def get_transcript_chunks(transcripts):
 
 
 def ac3_to_wav(audio_f, output_dir):
-    f_id = audio_f.strip(".ac3")
-    f_hash = hashlib.sha1(f_id.encode("utf-8")).hexdigest()
-    output_f = os.path.join(output_dir, f_hash + ".wav")
+    output_f = os.path.join(output_dir, str(uuid.uuid4()) + ".wav")
     ffmpeg = [
         "ffmpeg",
         "-hide_banner",
@@ -163,7 +161,10 @@ def split_chunk_to_uterances(audio_f, fragments, output_dir):
             output_dir, os.path.basename(audio_f).split(".")[0] + f"_{i}.wav"
         )
         tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
-        outputs.append((output_f, fragment.text, end - start))
+        output_txt = output_f.strip(".wav") + ".txt"
+        with open(output_txt, "w") as txt_f:
+            txt_f.write(fragment.text + "\n")
+        outputs.append((output_f, end - start))
     return outputs
 
 
