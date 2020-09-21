@@ -14,11 +14,6 @@ import aeneas.executetask
 import scipy.io.wavfile
 import sox
 
-TAG_REGEXP = re.compile(r"<.*?>")
-NAME_REGEXP = re.compile(r"([A-z]+\:)|(\([A-z]+\))")
-NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
-MULTI_SPACE_REGEXP = re.compile(r"\s+")
-
 
 def list_input_audio_files(input_dirs):
     files = []
@@ -38,6 +33,12 @@ def time_to_seconds(s):
     s, ms = sm.split(",")
     seconds = int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
     return seconds
+
+
+TAG_REGEXP = re.compile(r"<.*?>")
+NAME_REGEXP = re.compile(r"([A-z]+\:)|(\([A-z]+\))")
+NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
+MULTI_SPACE_REGEXP = re.compile(r"\s+")
 
 
 def parse_srt(srt_f):
