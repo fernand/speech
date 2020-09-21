@@ -3,7 +3,7 @@ import sys
 import torch
 from omegaconf import OmegaConf
 
-sys.path.append("silero-models/")
+sys.path.append("/home/fernand/dependencies/silero-models/")
 import utils
 
 models = OmegaConf.load("./silero-models/models.yml")
