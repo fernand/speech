@@ -193,6 +193,7 @@ def process_file(audio_f, output_dir):
         utterances.extend(
             split_chunk_to_uterances(audio_chunk_f, fragments, output_dir)
         )
+        os.remove(audio_chunk_f)
     return audio_f, utterances
 
 
