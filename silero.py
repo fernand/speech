@@ -11,8 +11,9 @@ import utils
 
 
 def load_silero_model():
-    models = OmegaConf.load(os.path.join(REPO_DIR, "models.yml"))
     device = torch.device("cpu")
+    torch.set_num_threads(1)
+    models = OmegaConf.load(os.path.join(REPO_DIR, "models.yml"))
     model, decoder = utils.init_jit_model(
         models.stt_models.en.latest.jit, device=device
     )
