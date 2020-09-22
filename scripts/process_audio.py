@@ -81,7 +81,7 @@ def get_transcript_chunks(transcripts):
     prev_end = first_tr[1]
     for tr in transcripts[1:]:
         current_start = tr[0]
-        if current_start - prev_end < 0.5:
+        if current_start - prev_end < 0.5 and len(tr[2].strip()) > 0:
             current_chunk.append(tr)
         else:
             chunks.append(current_chunk)
@@ -208,6 +208,7 @@ if __name__ == "__main__":
     input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
     output_dir = "/data/clean"
     audio_files = list_input_audio_files(input_dirs)
+    random.shuffle(audio_files)
     p = multiprocessing.Pool(6)
     res = p.starmap(process_file, [(f, output_dir) for f in audio_files])
     res = [t for t in res if t != ()]
