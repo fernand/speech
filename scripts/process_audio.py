@@ -158,7 +158,6 @@ def align_audio(audio_f, transcript_lines):
 def split_chunk_to_uterances(audio_f, fragments, output_dir):
     sr, y = scipy.io.wavfile.read(audio_f)
     assert sr == 16000
-    outputs = []
     for i, fragment in enumerate(fragments):
         start, end = float(str(fragment.begin)), float(str(fragment.end))
         # Ignore utterances shorter than 1 second
@@ -173,8 +172,6 @@ def split_chunk_to_uterances(audio_f, fragments, output_dir):
         output_txt = output_f.strip(".wav") + ".txt"
         with open(output_txt, "w") as txt_f:
             txt_f.write(fragment.text + "\n")
-        outputs.append((output_f, end - start))
-    return outputs
 
 
 # prodigy audio.transcribe uterances audio/uterances.jsonl --loader jsonl
@@ -203,15 +200,11 @@ def process_file(audio_f, output_dir):
     chunks = get_transcript_chunks(transcripts)
     outputs = split_audio_to_chunks(wav_f, chunks, output_dir)
     os.remove(wav_f)
-    utterances = []
     for _, audio_chunk_f, transcript in outputs:
         sync_map = align_audio(audio_chunk_f, transcript)
         fragments = sync_map.leaves(fragment_type=0)
-        utterances.extend(
-            split_chunk_to_uterances(audio_chunk_f, fragments, output_dir)
-        )
+        split_chunk_to_uterances(audio_chunk_f, fragments, output_dir)
         os.remove(audio_chunk_f)
-    return audio_f, utterances
 
 
 def process_chunk(audio_files, output_dir, chunk_i):
@@ -220,14 +213,10 @@ def process_chunk(audio_files, output_dir, chunk_i):
     else:
         log_progress = False
     percent = len(audio_files) // 100
-    res = []
     for i, audio_f in enumerate(audio_files):
         if log_progress and i % percent == 0:
             print(i // percent)
-        res.append(process_file(audio_f, output_dir))
-    print(res)
-    with open(f"res_{chunk_i}.pkl", "wb") as f:
-        pickle.dump(res, f)
+        process_file(audio_f, output_dir)
 
 
 if __name__ == "__main__":
@@ -242,8 +231,3 @@ if __name__ == "__main__":
     chunks = np.array_split(audio_files, num_workers)
     p = multiprocessing.Pool(num_workers)
     p.starmap(process_chunk, [(chunk, output_dir, i) for i, chunk in enumerate(chunks)])
-
-    # res = [t for chunk in res for t in chunk]
-    # res = [t for t in res if t != ()]
-    # with open(os.path.join(output_dir, "manifest.pkl"), "wb") as f:
-    #     pickle.dump(res, f)

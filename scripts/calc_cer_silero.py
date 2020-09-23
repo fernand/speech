@@ -45,9 +45,9 @@ def processor(audio_files, input_dir, chunk_i):
 
 
 if __name__ == "__main__":
-    input_dir = "/data/clean"
-    with open("manifest.pkl", "rb") as f:
-        audio_files = pickle.load(f)
+    # input_dir = "/data/clean"
+    input_dir = "/data/clean2"
+    audio_files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
     random.shuffle(audio_files)
     num_workers = 6
     chunks = np.array_split(audio_files, num_workers)
