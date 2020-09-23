@@ -52,6 +52,9 @@ if __name__ == "__main__":
     num_workers = 6
     chunks = np.array_split(audio_files, num_workers)
     p = multiprocessing.Pool(num_workers)
-    res = p.starmap(processor, [(chunk, input_dir, i) for i, chunk in enumerate(chunks)])
+    res = p.starmap(
+        processor, [(chunk, input_dir, i) for i, chunk in enumerate(chunks)]
+    )
+    res = [e for t in res for e in t]
     with open("cers.pkl", "wb") as f:
         pickle.dump(res, f)
