@@ -153,11 +153,11 @@ def main(hparams, experiment):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
 
-    test_dataset = data.SortedTrainLibriSpeech(
-        "sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
+    test_dataset = data.SortedTV(
+        "datasets/first/sorted_eval_first.pkl", hparams["batch_size"]
     )
-    train_dataset = data.SortedTrainLibriSpeech(
-        "sorted_train_librispeech.pkl", hparams["batch_size"]
+    train_dataset = data.SortedTV(
+        "datasets/first/sorted_train_first.pkl", hparams["batch_size"]
     )
 
     train_loader = torch.utils.data.DataLoader(

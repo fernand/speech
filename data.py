@@ -25,6 +25,30 @@ valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
 text_transform = TextTransform()
 
 
+class SortedTV(torch.utils.data.Dataset):
+    def __init__(self, dataset_path, batch_size):
+        self.batch_size = batch_size
+        with open(dataset_path, "rb") as f:
+            self.paths = [t[0] for t in pickle.load(f)]
+
+    def __len__(self):
+        return len(self.paths) // self.batch_size
+
+    def __getitem__(self, i):
+        return [
+            self.get_clip(j)
+            for j in range(i * self.batch_size, (i + 1) * self.batch_size)
+        ]
+
+    def get_clip(self, i):
+        audio_path = self.paths[i]
+        text_path = audio_path.strip(".wav") + ".txt"
+        waveform, sample_rate = torchaudio.load(audio_path, normalization=True)
+        with open(text_path) as f:
+            utterance = f.read().strip()
+        return (waveform, utterance)
+
+
 class SortedTrainLibriSpeech(torch.utils.data.Dataset):
     def __init__(self, dataset_path, batch_size):
         assert dataset_path.endswith(".pkl")
