@@ -37,7 +37,7 @@ def processor(audio_files, input_dir, chunk_i):
         duration = len(y) / 16000
         prediction = wav_to_text(audio_f, model, decoder)
         if len(prediction.strip()) == 0:
-            char_error = 100.0
+            char_error = 1.0
         else:
             char_error = cer(transcript, prediction)
         cers.append((audio_f, char_error, duration))

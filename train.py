@@ -1,3 +1,4 @@
+import sys
 import time
 
 from comet_ml import Experiment
@@ -154,11 +155,9 @@ def main(hparams, experiment):
     torch.manual_seed(7)
 
     test_dataset = data.SortedTV(
-        "datasets/first/sorted_eval_first.pkl", hparams["batch_size"]
+        hparams["train_dataset"].replace("train", "eval"), hparams["batch_size"]
     )
-    train_dataset = data.SortedTV(
-        "datasets/first/sorted_train_first.pkl", hparams["batch_size"]
-    )
+    train_dataset = data.SortedTV(hparams["train_dataset"], hparams["batch_size"])
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -233,6 +232,7 @@ def main(hparams, experiment):
 
 
 if __name__ == "__main__":
+    train_dataset_path = sys.argv[1]
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     hparams = {
         "shuffle": True,
         "batch_size": 32,
-        "epochs": 10,
+        "epochs": 100,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 5,
@@ -251,5 +251,6 @@ if __name__ == "__main__":
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": data.N_MELS,
+        "train_dataset": train_dataset_path,
     }
     main(hparams, experiment)
