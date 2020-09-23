@@ -242,7 +242,7 @@ if __name__ == "__main__":
     hparams = {
         "shuffle": True,
         "batch_size": 32,
-        "epochs": 100,
+        "epochs": 10,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 5,
