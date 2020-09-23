@@ -13,6 +13,7 @@ import aeneas.task
 import aeneas.executetask
 import scipy.io.wavfile
 import sox
+import numpy as np
 
 
 def list_input_audio_files(input_dirs):
@@ -35,6 +36,8 @@ def time_to_seconds(s):
     return seconds
 
 
+CONTINUATION_REGEXP_1 = re.compile(r">>")
+CONTINUATION_REGEXP_2 = re.compile(r">>>")
 TAG_REGEXP = re.compile(r"<.*?>")
 NAME_REGEXP = re.compile(r"([A-z]+\:)|(\([A-z]+\))")
 NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
@@ -48,28 +51,34 @@ def parse_srt(srt_f):
     chunks = [
         tuple(y) for x, y in itertools.groupby(lines, lambda z: z == "\n") if not x
     ]
-    prev_lines = set()
-    current_lines = set()
+    prev_lines = []
     for i, chunk in enumerate(chunks):
         start_end = chunk[1].strip().split(" --> ")
         start, end = map(time_to_seconds, start_end)
-        transcript = " ".join([c.strip() for c in chunk[2:]])
-        current_lines = set(chunk[2:])
-        # Ignore transcripts which overlap on multiple positions.
-        if len(current_lines.intersection(prev_lines)) > 0:
-            if len(transcripts) > 0:
-                transcripts.pop()
-            prev_lines = current_lines
+        current_lines = chunk[2:]
+        if len(current_lines) == 0:
             continue
+        # For transcript which overlap on multiple positions,
+        # remove the second transcript occurence.
+        if len(prev_lines) > 0 and prev_lines[-1] == current_lines[0]:
+            if len(current_lines) == 1:
+                prev_lines = current_lines
+                continue
+            transcript = " ".join([c.strip() for c in chunk[3:]])
+        else:
+            transcript = " ".join([c.strip() for c in chunk[2:]])
         prev_lines = current_lines
-        if "[" in transcript or ">>" in transcript:
+        if "[" in transcript:
             continue
         transcript = transcript.lower()
+        transcript = re.sub(CONTINUATION_REGEXP_1, "", transcript)
+        transcript = re.sub(CONTINUATION_REGEXP_2, "", transcript)
         transcript = re.sub(TAG_REGEXP, "", transcript)
         transcript = re.sub(NAME_REGEXP, "", transcript)
         transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, "", transcript)
         transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
-        transcripts.append((start, end, transcript))
+        if len(transcript) > 0:
+            transcripts.append((start, end, transcript))
     f.close()
     return transcripts
 
@@ -81,7 +90,7 @@ def get_transcript_chunks(transcripts):
     prev_end = first_tr[1]
     for tr in transcripts[1:]:
         current_start = tr[0]
-        if current_start - prev_end < 0.5 and len(tr[2].strip()) > 0:
+        if current_start - prev_end < 0.5:
             current_chunk.append(tr)
         else:
             chunks.append(current_chunk)
@@ -170,6 +179,7 @@ def split_chunk_to_uterances(audio_f, fragments, output_dir):
 
 # prodigy audio.transcribe uterances audio/uterances.jsonl --loader jsonl
 # python -m http.server 8081 --bind 192.168.1.21
+# Use Edge with the Chrome CORS bypass extension.
 def to_jsonl(uterances, output_f):
     if os.path.exists(output_f):
         os.remove(output_f)
@@ -204,13 +214,36 @@ def process_file(audio_f, output_dir):
     return audio_f, utterances
 
 
-if __name__ == "__main__":
-    input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
-    output_dir = "/data/clean"
-    audio_files = list_input_audio_files(input_dirs)
-    random.shuffle(audio_files)
-    p = multiprocessing.Pool(6)
-    res = p.starmap(process_file, [(f, output_dir) for f in audio_files])
-    res = [t for t in res if t != ()]
-    with open("/data/clean/manifest.pkl", "wb") as f:
+def process_chunk(audio_files, output_dir, chunk_i):
+    if chunk_i == 0:
+        log_progress = True
+    else:
+        log_progress = False
+    percent = len(audio_files) // 100
+    res = []
+    for i, audio_f in enumerate(audio_files):
+        if log_progress and i % percent == 0:
+            print(i // percent)
+        res.append(process_file(audio_f, output_dir))
+    print(res)
+    with open(f"res_{chunk_i}.pkl", "wb") as f:
         pickle.dump(res, f)
+
+
+if __name__ == "__main__":
+    # input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
+    # output_dir = "/data/clean"
+    input_dirs = ["/tv/second", "/tv/second/first", "/tv/second/second"]
+    output_dir = "/data/clean2"
+    audio_files = list_input_audio_files(input_dirs)
+    print(f"{len(audio_files)} files to process")
+    random.shuffle(audio_files)
+    num_workers = 6
+    chunks = np.array_split(audio_files, num_workers)
+    p = multiprocessing.Pool(num_workers)
+    p.starmap(process_chunk, [(chunk, output_dir, i) for i, chunk in enumerate(chunks)])
+
+    # res = [t for chunk in res for t in chunk]
+    # res = [t for t in res if t != ()]
+    # with open(os.path.join(output_dir, "manifest.pkl"), "wb") as f:
+    #     pickle.dump(res, f)

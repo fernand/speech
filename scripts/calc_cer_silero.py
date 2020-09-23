@@ -9,7 +9,7 @@ import numpy as np
 import scipy.io.wavfile
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
-from decoder import cer
+from decoder import cer, wer
 from silero import load_silero_model, wav_to_text
 
 
