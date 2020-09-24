@@ -38,9 +38,11 @@ def processor(audio_files, input_dir, chunk_i):
         prediction = wav_to_text(audio_f, model, decoder)
         if len(prediction.strip()) == 0:
             char_error = 1.0
+            word_error = 1.0
         else:
             char_error = cer(transcript, prediction)
-        cers.append((audio_f, char_error, duration))
+            word_error = wer(transcript, prediction)
+        cers.append((audio_f, char_error, word_error, duration))
     return cers
 
 

@@ -1,5 +1,7 @@
+import datetime
 import itertools
 import json
+import gc
 import multiprocessing
 import os
 import pickle
@@ -32,6 +34,8 @@ def list_input_audio_files(input_dirs):
 def time_to_seconds(s):
     h, m, sm = s.split(":")
     s, ms = sm.split(",")
+    if any([len(x) == 0 for x in [h, m, s, ms]]):
+        return None
     seconds = int(h) * 3600 + int(m) * 60 + int(s) + int(ms) / 1000
     return seconds
 
@@ -55,10 +59,12 @@ def parse_srt(srt_f):
     for i, chunk in enumerate(chunks):
         start_end = chunk[1].strip().split(" --> ")
         start, end = map(time_to_seconds, start_end)
+        if start is None or end is None:
+            continue
         current_lines = chunk[2:]
         if len(current_lines) == 0:
             continue
-        # For transcript which overlap on multiple positions,
+        # For transcripts which overlap on multiple positions,
         # remove the second transcript occurence.
         if len(prev_lines) > 0 and prev_lines[-1] == current_lines[0]:
             if len(current_lines) == 1:
@@ -214,8 +220,10 @@ def process_chunk(audio_files, output_dir, chunk_i):
         log_progress = False
     percent = len(audio_files) // 100
     for i, audio_f in enumerate(audio_files):
-        if log_progress and i % percent == 0:
-            print(i // percent)
+        if i % percent == 0:
+            gc.collect()
+            if log_progress:
+                print(datetime.datetime.now(), i // percent)
         process_file(audio_f, output_dir)
 
 

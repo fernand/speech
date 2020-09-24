@@ -8,10 +8,11 @@ TARGET_EVAL_DURATION = 10.0 * 3600
 
 def split_with_cer(dataset_dir, manifest, max_cer):
     clean_dataset = []
-    for path, cer, duration in manifest:
+    for path, cer, wer, duration in manifest:
         if cer == 0.0:
             clean_dataset.append((path, duration))
     random.shuffle(clean_dataset)
+
     eval_dataset = []
     train_dataset = []
     total_eval_duration = 0.0
@@ -21,10 +22,12 @@ def split_with_cer(dataset_dir, manifest, max_cer):
             total_eval_duration += duration
         else:
             train_dataset.append((path, duration))
+
     # Now add the less clean audio to the train set.
-    for path, cer, duration in manifest:
+    for path, cer, wer, duration in manifest:
         if cer != 0.0 and cer <= max_cer:
             train_dataset.append((path, duration))
+
     eval_dataset = sorted(eval_dataset, key=lambda t: t[1])
     train_dataset = sorted(train_dataset, key=lambda t: t[1])
     train_duration = round(sum([t[1] for t in train_dataset]) / 3600, 1)
@@ -42,6 +45,6 @@ if __name__ == "__main__":
     max_cer = float(sys.argv[2])
     with open(os.path.join(dataset_dir, "cers.pkl"), "rb") as f:
         manifest = pickle.load(f)
-    if "first" in dataset_dir:
-        manifest = [t for chunk in manifest for t in chunk]
+    # if "first" in dataset_dir:
+        # manifest = [t for chunk in manifest for t in chunk]
     split_with_cer(dataset_dir, manifest, max_cer)
