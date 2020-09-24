@@ -9,6 +9,7 @@ import random
 import subprocess
 import tempfile
 import uuid
+import sys
 
 import aeneas.task
 import aeneas.executetask
@@ -218,6 +219,7 @@ def process_file(audio_f, output_dir):
 
 
 if __name__ == "__main__":
+    chunk_i = int(sys.argv[1])
     # input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
     # output_dir = "/data/clean"
     input_dirs = ["/tv/second", "/tv/second/first", "/tv/second/second"]
@@ -225,14 +227,13 @@ if __name__ == "__main__":
     audio_files = list_input_audio_files(input_dirs)
     # Sorting the files to be able to resume specific chunks.
     audio_files = sorted(audio_files)
-    print(f"{len(audio_files)} files to process")
     # Process by chunks into order to not run into RAM issues.
     num_chunks = 10
     chunks = np.array_split(audio_files, num_chunks)
-    for i, chunk in enumerate(chunks):
-        print(f"Processing chunk {i+1} out of {num_chunks}")
-        joblib.Parallel(n_jobs=6)(
-            joblib.delayed(process_file)(audio_f, output_dir)
-            for audio_f in tqdm.tqdm(chunk)
-        )
+    print(f"Processing chunk {chunk_i} out of {num_chunks}")
+    print(f"{len(chunks[chunk_i])} files to process")
+    joblib.Parallel(n_jobs=6)(
+        joblib.delayed(process_file)(audio_f, output_dir)
+        for audio_f in tqdm.tqdm(chunks[chunk_i])
+    )
 
