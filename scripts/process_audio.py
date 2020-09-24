@@ -1,7 +1,6 @@
 import datetime
 import itertools
 import json
-import gc
 import multiprocessing
 import os
 import pickle
@@ -13,9 +12,10 @@ import uuid
 
 import aeneas.task
 import aeneas.executetask
+import joblib
 import scipy.io.wavfile
 import sox
-import numpy as np
+import tqdm
 
 
 def list_input_audio_files(input_dirs):
@@ -124,9 +124,7 @@ def ac3_to_wav(audio_f, output_dir):
         output_f,
     ]
     p = subprocess.Popen(ffmpeg, stderr=subprocess.PIPE)
-    _, stderr = p.communicate()
-    if len(stderr) > 0:
-        print(audio_f, stderr)
+    p.communicate()
     return output_f
 
 
@@ -144,7 +142,7 @@ def split_audio_to_chunks(audio_f, transcript_chunks, output_dir):
             output_dir, os.path.basename(audio_f).split(".")[0] + f"_{i}.wav"
         )
         tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
-        outputs.append((chunk[0][0], output_f, "\n".join([tr[2] for tr in chunk])))
+        outputs.append((output_f, "\n".join([tr[2] for tr in chunk])))
     return outputs
 
 
@@ -206,25 +204,16 @@ def process_file(audio_f, output_dir):
     chunks = get_transcript_chunks(transcripts)
     outputs = split_audio_to_chunks(wav_f, chunks, output_dir)
     os.remove(wav_f)
-    for _, audio_chunk_f, transcript in outputs:
+    for audio_chunk_f, transcript in outputs:
+        # Make sure the wavfile is valid.
+        sr, y = scipy.io.wavfile.read(audio_chunk_f)
+        if len(y) == 0:
+            os.remove(audio_chunk_f)
+            continue
         sync_map = align_audio(audio_chunk_f, transcript)
         fragments = sync_map.leaves(fragment_type=0)
         split_chunk_to_uterances(audio_chunk_f, fragments, output_dir)
         os.remove(audio_chunk_f)
-
-
-def process_chunk(audio_files, output_dir, chunk_i):
-    if chunk_i == 0:
-        log_progress = True
-    else:
-        log_progress = False
-    percent = len(audio_files) // 100
-    for i, audio_f in enumerate(audio_files):
-        if i % percent == 0:
-            gc.collect()
-            if log_progress:
-                print(datetime.datetime.now(), i // percent)
-        process_file(audio_f, output_dir)
 
 
 if __name__ == "__main__":
@@ -235,7 +224,8 @@ if __name__ == "__main__":
     audio_files = list_input_audio_files(input_dirs)
     print(f"{len(audio_files)} files to process")
     random.shuffle(audio_files)
-    num_workers = 6
-    chunks = np.array_split(audio_files, num_workers)
-    p = multiprocessing.Pool(num_workers)
-    p.starmap(process_chunk, [(chunk, output_dir, i) for i, chunk in enumerate(chunks)])
+    joblib.Parallel(n_jobs=6)(
+        joblib.delayed(process_file)(audio_f, output_dir)
+        for audio_f in tqdm.tqdm(audio_files)
+    )
+
