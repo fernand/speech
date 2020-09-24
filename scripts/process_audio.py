@@ -16,6 +16,7 @@ import joblib
 import scipy.io.wavfile
 import sox
 import tqdm
+import numpy as np
 
 
 def list_input_audio_files(input_dirs):
@@ -222,10 +223,16 @@ if __name__ == "__main__":
     input_dirs = ["/tv/second", "/tv/second/first", "/tv/second/second"]
     output_dir = "/data/clean2"
     audio_files = list_input_audio_files(input_dirs)
+    # Sorting the files to be able to resume specific chunks.
+    audio_files = sorted(audio_files)
     print(f"{len(audio_files)} files to process")
-    random.shuffle(audio_files)
-    joblib.Parallel(n_jobs=6)(
-        joblib.delayed(process_file)(audio_f, output_dir)
-        for audio_f in tqdm.tqdm(audio_files)
-    )
+    # Process by chunks into order to not run into RAM issues.
+    num_chunks = 10
+    chunks = np.array_split(audio_files, num_chunks)
+    for i, chunk in enumerate(chunks):
+        print(f"Processing chunk {i+1} out of {num_chunks}")
+        joblib.Parallel(n_jobs=6)(
+            joblib.delayed(process_file)(audio_f, output_dir)
+            for audio_f in tqdm.tqdm(chunk)
+        )
 
