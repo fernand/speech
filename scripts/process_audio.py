@@ -225,9 +225,7 @@ if __name__ == "__main__":
     input_dirs = ["/tv/second", "/tv/second/first", "/tv/second/second"]
     output_dir = "/data/clean2"
     audio_files = list_input_audio_files(input_dirs)
-    # Sorting the files to be able to resume specific chunks.
-    audio_files = sorted(audio_files)
-    # Process by chunks into order to not run into RAM issues.
+    # Process by chunks in order to not run into RAM issues.
     num_chunks = 10
     chunks = np.array_split(audio_files, num_chunks)
     print(f"Processing chunk {chunk_i} out of {num_chunks}")

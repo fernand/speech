@@ -1,8 +1,7 @@
 import multiprocessing
 import os
-import pathlib
 import pickle
-import random
+import shutil
 import sys
 
 import numpy as np
@@ -14,15 +13,11 @@ from silero import load_silero_model, wav_to_text
 
 
 def processor(audio_files, input_dir, chunk_i):
-    if chunk_i == 0:
-        log_status = True
-    else:
-        log_status = False
     percent = len(audio_files) // 100
     model, decoder = load_silero_model()
     cers = []
     for i, audio_f in enumerate(audio_files):
-        if log_status and i % percent == 0:
+        if chunk_i == 0 and i % percent == 0:
             print(i // percent)
         audio_f = os.path.join(input_dir, audio_f)
         transcript_f = audio_f.strip(".wav") + ".txt"
@@ -47,10 +42,14 @@ def processor(audio_files, input_dir, chunk_i):
 
 
 if __name__ == "__main__":
-    # input_dir = "/data/clean"
-    input_dir = "/data/clean2"
+    # /data/clean2
+    input_dir = sys.argv[1]
+    # datasets/second/
+    output_dir = sys.argv[2]
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.mkdir(output_dir)
     audio_files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
-    random.shuffle(audio_files)
     num_workers = 6
     chunks = np.array_split(audio_files, num_workers)
     p = multiprocessing.Pool(num_workers)
@@ -58,5 +57,5 @@ if __name__ == "__main__":
         processor, [(chunk, input_dir, i) for i, chunk in enumerate(chunks)]
     )
     res = [e for t in res for e in t]
-    with open("cers.pkl", "wb") as f:
+    with open(os.path.join(output_dir, "manifest.pkl"), "wb") as f:
         pickle.dump(res, f)
