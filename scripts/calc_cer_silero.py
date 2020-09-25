@@ -1,9 +1,9 @@
 import multiprocessing
 import os
 import pickle
-import random
 import shutil
 import sys
+import time
 
 import numpy as np
 import scipy.io.wavfile
@@ -13,13 +13,10 @@ from decoder import cer, wer
 from silero import load_silero_model, wav_to_text
 
 
-def processor(audio_files, input_dir, chunk_i):
-    percent = len(audio_files) // 100
+def processor(audio_files, input_dir):
     model, decoder = load_silero_model()
-    cers = []
+    manifest = []
     for i, audio_f in enumerate(audio_files):
-        if chunk_i == 0 and i % percent == 0:
-            print(i // percent)
         audio_f = os.path.join(input_dir, audio_f)
         transcript_f = audio_f.strip(".wav") + ".txt"
         if not os.path.exists(transcript_f):
@@ -38,8 +35,8 @@ def processor(audio_files, input_dir, chunk_i):
         else:
             char_error = cer(transcript, prediction)
             word_error = wer(transcript, prediction)
-        cers.append((audio_f, char_error, word_error, duration))
-    return cers
+        manifest.append((audio_f, char_error, word_error, duration))
+    return manifest
 
 
 if __name__ == "__main__":
@@ -51,15 +48,20 @@ if __name__ == "__main__":
         shutil.rmtree(output_dir)
     os.mkdir(output_dir)
     audio_files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
-    random.shuffle(audio_files)
+    audio_files = sorted(audio_files)
+    num_chunks = 10
+    chunks = np.array_split(audio_files, num_chunks)
     num_workers = 6
-    chunks = np.array_split(audio_files, num_workers)
-    p = multiprocessing.Pool(num_workers)
-    res = p.starmap(
-        processor, [(chunk, input_dir, i) for i, chunk in enumerate(chunks)]
-    )
-    p.close()
-    p.join()
-    res = [e for t in res for e in t]
-    with open(os.path.join(output_dir, "manifest.pkl"), "wb") as f:
-        pickle.dump(res, f)
+    for chunk_i, chunk in enumerate(chunks):
+        print(f"Processing chunk {chunk_i} of {num_chunks - 1}")
+        start = time.time()
+        sub_chunks = np.array_split(chunk, num_workers)
+        p = multiprocessing.Pool(num_workers)
+        res = p.starmap(processor, [(sub_chunk, input_dir) for sub_chunk in sub_chunks])
+        p.close()
+        p.join()
+        res = [e for t in res for e in t]
+        with open(os.path.join(output_dir, f"manifest_{chunk_i}.pkl"), "wb") as f:
+            pickle.dump(res, f)
+        del res
+        print(f"Time for chunk: {time.time() - start}")
