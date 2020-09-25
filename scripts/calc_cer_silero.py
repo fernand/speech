@@ -25,16 +25,19 @@ class WavDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i):
         audio_f = os.path.join(self.input_dir, self.audio_files[i])
-        wav, sr = torchaudio.load(audio_f, normalization=True, channels_first=True)
-        wav = wav.squeeze(0)
+        try:
+            wav, sr = torchaudio.load(audio_f, normalization=True, channels_first=True)
+            wav = wav.squeeze(0)
+        except:
+            wav = torch.FloatTensor([])
         duration = len(wav) / 16000
         transcript_f = audio_f.strip(".wav") + ".txt"
         transcript = None
         if os.path.exists(transcript_f):
             with open(transcript_f, "r") as f:
                 transcript = f.read().strip()
-        if len(transcript) == 0:
-            transcript = None
+                if len(transcript) == 0:
+                    transcript = None
         return (audio_f, wav, transcript, duration)
 
 
@@ -48,9 +51,7 @@ def collate_fn(data):
 
 
 if __name__ == "__main__":
-    # /data/clean2
     input_dir = sys.argv[1]
-    # datasets/second/
     output_dir = sys.argv[2]
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
