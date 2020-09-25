@@ -1,42 +1,50 @@
-import multiprocessing
 import os
 import pickle
 import shutil
 import sys
 import time
 
-import numpy as np
-import scipy.io.wavfile
+import torch
+import torchaudio
+import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 from decoder import cer, wer
-from silero import load_silero_model, wav_to_text
+from silero import prepare_model_input, load_silero_model, wav_to_text
+
+torchaudio.set_audio_backend("soundfile")
 
 
-def processor(audio_files, input_dir):
-    model, decoder = load_silero_model()
-    manifest = []
-    for i, audio_f in enumerate(audio_files):
-        audio_f = os.path.join(input_dir, audio_f)
+class WavDataset(torch.utils.data.Dataset):
+    def __init__(self, audio_files, input_dir):
+        self.audio_files = audio_files
+        self.input_dir = input_dir
+
+    def __len__(self):
+        return len(audio_files)
+
+    def __getitem__(self, i):
+        audio_f = os.path.join(self.input_dir, self.audio_files[i])
+        wav, sr = torchaudio.load(audio_f, normalization=True, channels_first=True)
+        wav = wav.squeeze(0)
+        duration = len(wav) / 16000
         transcript_f = audio_f.strip(".wav") + ".txt"
-        if not os.path.exists(transcript_f):
-            continue
-        with open(transcript_f, "r") as f:
-            transcript = f.read().strip()
-        if len(transcript.strip()) == 0:
-            continue
-        sr, y = scipy.io.wavfile.read(audio_f)
-        assert sr == 16000
-        duration = len(y) / 16000
-        prediction = wav_to_text(audio_f, model, decoder)
-        if len(prediction.strip()) == 0:
-            char_error = 1.0
-            word_error = 1.0
-        else:
-            char_error = cer(transcript, prediction)
-            word_error = wer(transcript, prediction)
-        manifest.append((audio_f, char_error, word_error, duration))
-    return manifest
+        transcript = None
+        if os.path.exists(transcript_f):
+            with open(transcript_f, "r") as f:
+                transcript = f.read().strip()
+        if len(transcript) == 0:
+            transcript = None
+        return (audio_f, wav, transcript, duration)
+
+
+def collate_fn(data):
+    return (
+        [t[0] for t in data],
+        prepare_model_input([t[1] for t in data], device=torch.device("cpu")),
+        [t[2] for t in data],
+        [t[3] for t in data],
+    )
 
 
 if __name__ == "__main__":
@@ -48,20 +56,38 @@ if __name__ == "__main__":
         shutil.rmtree(output_dir)
     os.mkdir(output_dir)
     audio_files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
-    audio_files = sorted(audio_files)
-    num_chunks = 10
-    chunks = np.array_split(audio_files, num_chunks)
-    num_workers = 6
-    for chunk_i, chunk in enumerate(chunks):
-        print(f"Processing chunk {chunk_i} of {num_chunks - 1}")
-        start = time.time()
-        sub_chunks = np.array_split(chunk, num_workers)
-        p = multiprocessing.Pool(num_workers)
-        res = p.starmap(processor, [(sub_chunk, input_dir) for sub_chunk in sub_chunks])
-        p.close()
-        p.join()
-        res = [e for t in res for e in t]
-        with open(os.path.join(output_dir, f"manifest_{chunk_i}.pkl"), "wb") as f:
-            pickle.dump(res, f)
-        del res
-        print(f"Time for chunk: {time.time() - start}")
+
+    device = torch.device(f"cuda:1")
+    model, decoder = load_silero_model(device)
+    dataset = WavDataset(audio_files, input_dir)
+    batch_size = 64
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=collate_fn,
+        num_workers=3,
+        pin_memory=True,
+    )
+
+    manifest = []
+    for batch in tqdm.tqdm(dataloader, total=len(dataset) // batch_size):
+        files, wavs, transcripts, durations = batch
+        wavs = wavs.to(device)
+        output = model(wavs).cpu()
+        predictions = [decoder(output[i]) for i in range(len(output))]
+        for audio_f, transcript, prediction, duration in zip(
+            files, transcripts, predictions, durations
+        ):
+            if transcript is None:
+                continue
+            if len(prediction.strip()) == 0:
+                char_error = 1.0
+                word_error = 1.0
+            else:
+                char_error = cer(transcript, prediction)
+                word_error = wer(transcript, prediction)
+            manifest.append((audio_f, char_error, word_error, duration))
+
+    with open(os.path.join(output_dir, f"manifest.pkl"), "wb") as f:
+        pickle.dump(manifest, f)
