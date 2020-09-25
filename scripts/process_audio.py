@@ -172,9 +172,18 @@ def split_chunk_to_uterances(audio_f, fragments, output_dir):
             output_dir, os.path.basename(audio_f).split(".")[0] + f"_{i}.wav"
         )
         tfm.build_file(input_array=y, sample_rate_in=sr, output_filepath=output_f)
+        opusenc(output_f)
+        os.remove(output_f)
         output_txt = output_f.strip(".wav") + ".txt"
         with open(output_txt, "w") as txt_f:
             txt_f.write(fragment.text + "\n")
+
+
+def opusenc(audio_f):
+    assert audio_f.endswith(".wav")
+    opus = ["opusenc", audio_f, audio_f.strip(".wav") + ".opus"]
+    p = subprocess.Popen(opus)
+    p.communicate()
 
 
 # prodigy audio.transcribe uterances audio/uterances.jsonl --loader jsonl
