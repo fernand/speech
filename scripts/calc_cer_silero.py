@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import pickle
+import random
 import shutil
 import sys
 
@@ -50,6 +51,7 @@ if __name__ == "__main__":
         shutil.rmtree(output_dir)
     os.mkdir(output_dir)
     audio_files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
+    random.shuffle(audio_files)
     num_workers = 6
     chunks = np.array_split(audio_files, num_workers)
     p = multiprocessing.Pool(num_workers)
