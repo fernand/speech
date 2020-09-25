@@ -31,6 +31,8 @@ class WavDataset(torch.utils.data.Dataset):
         except:
             wav = torch.FloatTensor([])
         duration = len(wav) / 16000
+        if duration > 6.0:
+            wav = torch.FloatTensor([])
         transcript_f = audio_f.strip(".wav") + ".txt"
         transcript = None
         if os.path.exists(transcript_f):
