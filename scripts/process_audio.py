@@ -1,22 +1,42 @@
-import datetime
+import multiprocessing.pool as mpp
+
+
+def istarmap(self, func, iterable, chunksize=1):
+    """starmap-version of imap
+    """
+    self._check_running()
+    if chunksize < 1:
+        raise ValueError("Chunksize must be 1+, not {0:n}".format(chunksize))
+
+    task_batches = mpp.Pool._get_tasks(func, iterable, chunksize)
+    result = mpp.IMapIterator(self)
+    self._taskqueue.put(
+        (
+            self._guarded_task_generation(result._job, mpp.starmapstar, task_batches),
+            result._set_length,
+        )
+    )
+    return (item for chunk in result for item in chunk)
+
+
+mpp.Pool.istarmap = istarmap
+
+
 import itertools
 import json
-import multiprocessing
 import os
 import pickle
 import re
 import random
 import subprocess
 import tempfile
+import time
 import uuid
-import sys
 
 import aeneas.task
 import aeneas.executetask
-import joblib
 import scipy.io.wavfile
 import sox
-import tqdm
 import numpy as np
 
 
@@ -219,19 +239,22 @@ def process_file(audio_f, output_dir):
 
 
 if __name__ == "__main__":
-    chunk_i = int(sys.argv[1])
     # input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
     # output_dir = "/data/clean"
     input_dirs = ["/tv/second", "/tv/second/first", "/tv/second/second"]
     output_dir = "/data/clean2"
     audio_files = list_input_audio_files(input_dirs)
+    random.shuffle(audio_files)
+    print(f"{len(audio_files)} files to process")
     # Process by chunks in order to not run into RAM issues.
-    num_chunks = 10
+    num_chunks = 20
     chunks = np.array_split(audio_files, num_chunks)
-    print(f"Processing chunk {chunk_i} out of {num_chunks}")
-    print(f"{len(chunks[chunk_i])} files to process")
-    joblib.Parallel(n_jobs=6)(
-        joblib.delayed(process_file)(audio_f, output_dir)
-        for audio_f in tqdm.tqdm(chunks[chunk_i])
-    )
+    for chunk_i, chunk in enumerate(chunks):
+        p = mpp.Pool(6)
+        print(f"Processing chunk {chunk_i} out of {num_chunks}")
+        start = time.time()
+        p.starmap(process_file, [(audio_f, output_dir) for audio_f in chunks[chunk_i]])
+        print(f"Time to process: {round(time.time() - start)}s")
+        p.close()
+        p.join()
 

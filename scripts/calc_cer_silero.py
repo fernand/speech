@@ -56,6 +56,8 @@ if __name__ == "__main__":
     res = p.starmap(
         processor, [(chunk, input_dir, i) for i, chunk in enumerate(chunks)]
     )
+    p.close()
+    p.join()
     res = [e for t in res for e in t]
     with open(os.path.join(output_dir, "manifest.pkl"), "wb") as f:
         pickle.dump(res, f)
