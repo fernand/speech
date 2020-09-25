@@ -1,29 +1,6 @@
-import multiprocessing.pool as mpp
-
-
-def istarmap(self, func, iterable, chunksize=1):
-    """starmap-version of imap
-    """
-    self._check_running()
-    if chunksize < 1:
-        raise ValueError("Chunksize must be 1+, not {0:n}".format(chunksize))
-
-    task_batches = mpp.Pool._get_tasks(func, iterable, chunksize)
-    result = mpp.IMapIterator(self)
-    self._taskqueue.put(
-        (
-            self._guarded_task_generation(result._job, mpp.starmapstar, task_batches),
-            result._set_length,
-        )
-    )
-    return (item for chunk in result for item in chunk)
-
-
-mpp.Pool.istarmap = istarmap
-
-
 import itertools
 import json
+import multiprocessing
 import os
 import pickle
 import re
@@ -250,11 +227,10 @@ if __name__ == "__main__":
     num_chunks = 20
     chunks = np.array_split(audio_files, num_chunks)
     for chunk_i, chunk in enumerate(chunks):
-        p = mpp.Pool(6)
-        print(f"Processing chunk {chunk_i} out of {num_chunks}")
+        p = multiprocessing.Pool(6)
+        print(f"Processing chunk {chunk_i} out of {num_chunks - 1}")
         start = time.time()
         p.starmap(process_file, [(audio_f, output_dir) for audio_f in chunks[chunk_i]])
         print(f"Time to process: {round(time.time() - start)}s")
         p.close()
         p.join()
-
