@@ -61,7 +61,7 @@ if __name__ == "__main__":
     device = torch.device(f"cuda:1")
     model, decoder = load_silero_model(device)
     dataset = WavDataset(audio_files, input_dir)
-    batch_size = 64
+    batch_size = 32
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=batch_size,
