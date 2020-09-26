@@ -49,7 +49,7 @@ class SortedTV(torch.utils.data.Dataset):
         return (waveform, utterance)
 
 
-class SortedTrainLibriSpeech(torch.utils.data.Dataset):
+class SortedLibriSpeech(torch.utils.data.Dataset):
     def __init__(self, dataset_path, batch_size):
         assert dataset_path.endswith(".pkl")
         self.batch_size = batch_size

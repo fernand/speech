@@ -6,6 +6,7 @@ import pickle
 import re
 import random
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -223,11 +224,21 @@ def process_file(audio_f, output_dir):
         os.remove(audio_chunk_f)
 
 
+DATASETS = {
+    "first": {
+        "input_dirs": ["/tv/first", "/tv/first/extra", "/tv/first/round1"],
+        "output_dir": "/data/clean",
+    },
+    "second": {
+        "input_dirs": ["/tv/second", "/tv/second/first", "/tv/second/second"],
+        "output_dir": "/data/clean2",
+    },
+}
+
 if __name__ == "__main__":
-    # input_dirs = ["/tv/first", "/tv/first/extra", "/tv/first/round1"]
-    # output_dir = "/data/clean"
-    input_dirs = ["/tv/second", "/tv/second/first", "/tv/second/second"]
-    output_dir = "/data/clean2"
+    dataset_name = sys.argv[1]
+    input_dirs = DATASETS[dataset_name]["input_dirs"]
+    output_dir = DATASETS[dataset_name]["output_dir"]
     audio_files = list_input_audio_files(input_dirs)
     random.shuffle(audio_files)
     print(f"{len(audio_files)} files to process")
