@@ -4,6 +4,7 @@ import random
 
 import torch
 import torchaudio
+import torchtext
 import torch.nn as nn
 
 from text import TextTransform
@@ -26,10 +27,15 @@ text_transform = TextTransform()
 
 
 class SortedTV(torch.utils.data.Dataset):
-    def __init__(self, dataset_path, batch_size):
+    def __init__(self, dataset_paths, batch_size):
         self.batch_size = batch_size
-        with open(dataset_path, "rb") as f:
-            self.paths = [t[0] for t in pickle.load(f)]
+        self.paths = []
+        for dataset_path in dataset_paths:
+            with open(dataset_path, "rb") as f:
+                paths = [t[0] for t in pickle.load(f)]
+                if "clean2" in paths[0]:
+                    paths = [p.replace("/data", "/home/fernand") for p in paths]
+                self.paths.extend(paths)
 
     def __len__(self):
         return len(self.paths) // self.batch_size

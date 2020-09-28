@@ -100,7 +100,7 @@ def train(
                 batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
-    if epoch == 1 or epoch == num_epochs:
+    if epoch == num_epochs:
         exp_id = experiment.url.split("/")[-1]
         torch.save(model.state_dict(), f"model_{exp_id}_{epoch}.pth")
 
@@ -154,10 +154,15 @@ def main(hparams, experiment):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
 
-    test_dataset = data.SortedTV(
-        hparams["train_dataset"].replace("train", "eval"), hparams["batch_size"]
-    )
+    eval_datasets = [
+        dataset.replace("train", "eval") for dataset in hparams["train_dataset"]
+    ]
+    test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
     train_dataset = data.SortedTV(hparams["train_dataset"], hparams["batch_size"])
+    # train_dataset_2 = data.SortedLibriSpeech(
+    #     "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
+    # )
+    # train_dataset = torch.utils.data.ConcatDataset([train_dataset_1, train_dataset_2])
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -232,7 +237,11 @@ def main(hparams, experiment):
 
 
 if __name__ == "__main__":
-    train_dataset_path = sys.argv[1]
+    # train_dataset_path = sys.argv[1]
+    train_dataset_path = [
+        "datasets/first/sorted_train_cer_0.2.pkl",
+        "datasets/second/sorted_train_cer_0.2.pkl",
+    ]
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
@@ -242,7 +251,7 @@ if __name__ == "__main__":
     hparams = {
         "shuffle": True,
         "batch_size": 32,
-        "epochs": 10,
+        "epochs": 15,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 10,

@@ -7,3 +7,5 @@ custom
 *.pth
 *.model
 silero-models
+datasets
+sp
