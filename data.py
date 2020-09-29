@@ -33,8 +33,7 @@ class SortedTV(torch.utils.data.Dataset):
         for dataset_path in dataset_paths:
             with open(dataset_path, "rb") as f:
                 paths = [t[0] for t in pickle.load(f)]
-                if "clean2" in paths[0]:
-                    paths = [p.replace("/data", "/home/fernand") for p in paths]
+                paths = [p.replace("/data", "/hd1") for p in paths]
                 self.paths.extend(paths)
 
     def __len__(self):
