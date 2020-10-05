@@ -77,7 +77,6 @@ if __name__ == "__main__":
         hparams["rnn_dim"],
         hparams["n_vocab"],
         hparams["n_feats"],
-        2,
         hparams["dropout"],
     )
     model.cuda()
