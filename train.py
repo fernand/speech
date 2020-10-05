@@ -1,4 +1,3 @@
-import sys
 import time
 
 from comet_ml import Experiment
@@ -159,10 +158,9 @@ def main(hparams, experiment):
     ]
     test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
     train_dataset = data.SortedTV(hparams["train_dataset"], hparams["batch_size"])
-    # train_dataset_2 = data.SortedLibriSpeech(
+    # train_dataset = data.SortedLibriSpeech(
     #     "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
     # )
-    # train_dataset = torch.utils.data.ConcatDataset([train_dataset_1, train_dataset_2])
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -188,7 +186,6 @@ def main(hparams, experiment):
         hparams["rnn_dim"],
         hparams["n_vocab"],
         hparams["n_feats"],
-        2,
         hparams["dropout"],
     )
     model.cuda()
@@ -237,10 +234,10 @@ def main(hparams, experiment):
 
 
 if __name__ == "__main__":
-    # train_dataset_path = sys.argv[1]
     train_dataset_path = [
         "datasets/first/sorted_train_cer_0.2.pkl",
         "datasets/second/sorted_train_cer_0.2.pkl",
+        "datasets/third/sorted_train_cer_0.2.pkl",
     ]
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
@@ -251,7 +248,7 @@ if __name__ == "__main__":
     hparams = {
         "shuffle": True,
         "batch_size": 32,
-        "epochs": 15,
+        "epochs": 20,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 10,

@@ -25,7 +25,7 @@ class ResidualBlock(nn.Module):
         nn.init.constant_(self.bn2.bias, 0)
 
     def forward(self, x):
-        residual = x  # (batch, channel, feature, time)
+        residual = x  # B, C, F, T
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -33,54 +33,45 @@ class ResidualBlock(nn.Module):
         x = self.bn2(x)
         x += residual
         x = self.relu(x)
-        return x  # (batch, channel, feature, time)
+        return x  # B, C, F, T
 
 
 class SRModel(nn.Module):
     def __init__(
-        self,
-        n_cnn_layers,
-        n_rnn_layers,
-        rnn_dim,
-        n_vocab,
-        n_feats,
-        stride=2,
-        dropout=0.1,
+        self, n_cnn_layers, n_rnn_layers, rnn_dim, n_vocab, n_feats, dropout=0.1,
     ):
         super().__init__()
-        n_feats = n_feats // stride
-        self.stride = stride
-        self.cnn = nn.Conv2d(1, 32, 3, stride=stride, padding=3 // 2)
+        self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
             *[ResidualBlock(32, 32, stride=1, kernel_s=3) for _ in range(n_cnn_layers)]
         )
         self.birnn_layers = sru.SRU(
-            input_size=n_feats * 32,
-            proj_input_to_hidden_first=True,
+            input_size=32 * n_feats // 2,
+            proj_input_to_hidden_first=False,
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
-            rnn_dropout=dropout,
+            dropout=dropout,
             layer_norm=True,
             use_tanh=True,
             bidirectional=True,
             nn_rnn_compatible_return=True,
         )
         self.classifier = nn.Sequential(
-            nn.LayerNorm(rnn_dim * 2),
-            nn.Linear(rnn_dim * 2, rnn_dim, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
+            nn.LayerNorm(rnn_dim), nn.Linear(rnn_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):
         x = self.cnn(x)
         x = self.resnet_layers(x)
         sizes = x.size()
-        x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # (batch, feature, time)
-        x = x.permute(2, 0, 1).contiguous()  # (time, feature, batch)
-        x, _ = self.birnn_layers(x)  # (time, batch, feature)
+        x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # B, C, T
+        x = x.permute(2, 0, 1).contiguous()  # T, B, C
+        x, _ = self.birnn_layers(x)  # T, B, C*2
         # TODO: don't do nn_rnn_compatible_return then do it here to only have 1 contiguous.
         # SRU return shape is 4D https://github.com/asappresearch/sru/blob/master/sru/sru_functional.py#L621
-        x = x.transpose(0, 1).contiguous()  # (batch, time, feature)
+        x = (
+            x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
+        )  # T,B,C*2 -> T,B,C by sum
+        x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
         return x

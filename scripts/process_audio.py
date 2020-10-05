@@ -227,12 +227,13 @@ def process_file(audio_f, output_dir):
 DATASETS = {
     "first": {
         "input_dirs": ["/tv/first", "/tv/first/extra", "/tv/first/round1"],
-        "output_dir": "/data/clean",
+        "output_dir": "/hd1/clean",
     },
     "second": {
         "input_dirs": ["/tv/second", "/tv/second/first", "/tv/second/second"],
-        "output_dir": "/data/clean2",
+        "output_dir": "/hd1/clean2",
     },
+    "third": {"input_dirs": ["/tv/third"], "output_dir": "/hd1/clean3",},
 }
 
 if __name__ == "__main__":
