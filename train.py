@@ -168,6 +168,7 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
 def main(hparams, experiment):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
+    torch.backends.cudnn.benchmark = True
 
     eval_datasets = [
         dataset.replace("train", "eval") for dataset in hparams["train_dataset"]
