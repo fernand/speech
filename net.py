@@ -1,3 +1,4 @@
+import apex
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -45,9 +46,10 @@ class SRModel(nn.Module):
         self.resnet_layers = nn.Sequential(
             *[ResidualBlock(32, 32, stride=1, kernel_s=3) for _ in range(n_cnn_layers)]
         )
+        n_features = 32 * n_feats // 2
+        self.feature_ln = apex.normalization.FusedLayerNorm(n_features)
         self.birnn_layers = sru.SRU(
-            input_size=32 * n_feats // 2,
-            proj_input_to_hidden_first=False,
+            input_size=n_features,
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
             dropout=dropout,
@@ -66,6 +68,7 @@ class SRModel(nn.Module):
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3])  # B, C, T
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
+        x = self.feature_ln(x)
         x, _ = self.birnn_layers(x)  # T, B, C*2
         # TODO: don't do nn_rnn_compatible_return then do it here to only have 1 contiguous.
         # SRU return shape is 4D https://github.com/asappresearch/sru/blob/master/sru/sru_functional.py#L621

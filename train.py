@@ -1,10 +1,10 @@
+import math
 import time
 
 from comet_ml import Experiment
 import apex
 import torch
 import torchaudio
-import torch.nn as nn
 import torch.nn.functional as F
 
 import data
@@ -25,6 +25,22 @@ def get_linear_schedule_with_warmup(
         )
 
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
+
+
+def get_cosine_schedule_with_warmup(
+    optimizer, num_warmup_steps, num_training_steps, num_cycles=0.5, last_epoch=-1
+):
+    def lr_lambda(current_step):
+        if current_step < num_warmup_steps:
+            return float(current_step) / float(max(1, num_warmup_steps))
+        progress = float(current_step - num_warmup_steps) / float(
+            max(1, num_training_steps - num_warmup_steps)
+        )
+        return max(
+            0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
+        )
+
+    return torch.optim.lr.LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
 class IterMeter(object):
@@ -204,6 +220,7 @@ def main(hparams, experiment):
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
+    # scheduler = get_linear_schedule_with_warmup(
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000, hparams["epochs"] * len(train_loader)
     )
