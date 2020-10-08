@@ -209,7 +209,7 @@ def main(hparams, experiment):
     optimizer = apex.optimizers.FusedAdam(
         model.parameters(),
         lr=hparams["learning_rate"],
-        adam_w_mode=True,
+        adam_w_mode=False,
         weight_decay=0.01,
         # Different than default Pytorch.
         amsgrad=False,

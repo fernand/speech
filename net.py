@@ -59,7 +59,8 @@ class SRModel(nn.Module):
             nn_rnn_compatible_return=True,
         )
         self.classifier = nn.Sequential(
-            nn.LayerNorm(rnn_dim), nn.Linear(rnn_dim, n_vocab + 1, bias=False),
+            apex.normalization.FusedLayerNorm(rnn_dim),
+            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):
