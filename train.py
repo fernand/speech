@@ -221,7 +221,6 @@ def main(hparams, experiment):
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
-    # scheduler = get_linear_schedule_with_warmup(
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000, hparams["epochs"] * len(train_loader)
     )
