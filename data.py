@@ -74,7 +74,7 @@ class SortedLibriSpeech(torch.utils.data.Dataset):
         ]
 
     def get_clip(self, i):
-        audio_path = self.paths[i]
+        audio_path = self.paths[i].replace("/data", "/hd1")
         path, filename = os.path.split(audio_path)
         fileid = filename.split(".")[0]
         speaker_id, chapter_id, utterance_id = fileid.split("-")
