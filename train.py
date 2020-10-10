@@ -100,12 +100,11 @@ def train(
                 batch_start = time.time()
     epoch_time = round(time.time() - start)
     experiment.log_metric("epoch_time", epoch_time)
-    if epoch == num_epochs:
-        exp_id = experiment.url.split("/")[-1]
-        torch.save(model.state_dict(), f"model_{exp_id}_{epoch}.pth")
 
 
-def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experiment):
+def test(
+    batch_size, model, test_loader, criterion, epoch, iter_meter, experiment, last_loss
+):
     print("\nevaluating…")
     model.eval()
     test_loss = 0
@@ -142,12 +141,14 @@ def test(batch_size, model, test_loader, criterion, epoch, iter_meter, experimen
     experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
     experiment.log_metric("cer", avg_cer, step=iter_meter.get())
     experiment.log_metric("wer", avg_wer, step=iter_meter.get())
-
     print(
         "Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
             test_loss, avg_cer, avg_wer
         )
     )
+    if test_loss < last_loss:
+        exp_id = experiment.url.split("/")[-1]
+        torch.save(model.state_dict(), f"model_{exp_id}.pth")
 
 
 def main(hparams, experiment):
@@ -197,7 +198,8 @@ def main(hparams, experiment):
     optimizer = apex.optimizers.FusedAdam(
         model.parameters(),
         lr=hparams["learning_rate"],
-        adam_w_mode=False,
+        adam_w_mode=True,
+        weight_decay=1e-6,
         # Different than default Pytorch.
         amsgrad=False,
     )
@@ -213,6 +215,7 @@ def main(hparams, experiment):
     )
 
     iter_meter = IterMeter()
+    last_loss = 1e6
     for epoch in range(1, hparams["epochs"] + 1):
         train(
             hparams["batch_size"],
@@ -226,7 +229,7 @@ def main(hparams, experiment):
             hparams["epochs"],
             experiment,
         )
-        test(
+        last_loss = test(
             hparams["batch_size"],
             model,
             test_loader,
@@ -234,6 +237,7 @@ def main(hparams, experiment):
             epoch,
             iter_meter,
             experiment,
+            last_loss,
         )
 
 
