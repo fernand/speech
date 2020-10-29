@@ -233,7 +233,8 @@ DATASETS = {
         "input_dirs": ["/tv/second", "/tv/second/first", "/tv/second/second"],
         "output_dir": "/hd1/clean2",
     },
-    "third": {"input_dirs": ["/tv/third"], "output_dir": "/hd1/clean3",},
+    "third": {"input_dirs": ["/tv/third"], "output_dir": "/hd1/clean3"},
+    "fourth": {"input_dirs": ["/tv/fourth"], "output_dir": "/hd1/clean4"},
 }
 
 if __name__ == "__main__":

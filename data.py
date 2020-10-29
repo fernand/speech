@@ -4,7 +4,6 @@ import random
 
 import torch
 import torchaudio
-import torchtext
 import torch.nn as nn
 
 from text import TextTransform

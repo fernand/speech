@@ -12,17 +12,16 @@ import net
 import decoder
 
 
-def get_cosine_schedule_with_warmup(
-    optimizer, num_warmup_steps, num_training_steps, num_cycles=0.5, last_epoch=-1
+def get_linear_schedule_with_warmup(
+    optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
 ):
-    def lr_lambda(current_step):
+    def lr_lambda(current_step: int):
         if current_step < num_warmup_steps:
             return float(current_step) / float(max(1, num_warmup_steps))
-        progress = float(current_step - num_warmup_steps) / float(
-            max(1, num_training_steps - num_warmup_steps)
-        )
         return max(
-            0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))
+            0.0,
+            float(num_training_steps - current_step)
+            / float(max(1, num_training_steps - num_warmup_steps)),
         )
 
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda, last_epoch)
@@ -149,6 +148,7 @@ def test(
     if test_loss < last_loss:
         exp_id = experiment.url.split("/")[-1]
         torch.save(model.state_dict(), f"model_{exp_id}.pth")
+    return test_loss
 
 
 def main(hparams, experiment):
@@ -159,14 +159,14 @@ def main(hparams, experiment):
     eval_datasets = [
         dataset.replace("train", "eval") for dataset in hparams["train_dataset"]
     ]
-    # test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
-    # train_dataset = data.SortedTV(hparams["train_dataset"], hparams["batch_size"])
-    test_dataset = data.SortedLibriSpeech(
-        "datasets/librispeech/sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
-    )
-    train_dataset = data.SortedLibriSpeech(
-        "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
-    )
+    test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
+    train_dataset = data.SortedTV(hparams["train_dataset"], hparams["batch_size"])
+    # test_dataset = data.SortedLibriSpeech(
+    #    "datasets/librispeech/sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
+    # )
+    # train_dataset = data.SortedLibriSpeech(
+    #    "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
+    # )
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -210,7 +210,7 @@ def main(hparams, experiment):
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
-    scheduler = get_cosine_schedule_with_warmup(
+    scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000, hparams["epochs"] * len(train_loader)
     )
 
@@ -243,9 +243,10 @@ def main(hparams, experiment):
 
 if __name__ == "__main__":
     train_dataset_path = [
-        "datasets/first/sorted_train_cer_0.2.pkl",
-        "datasets/second/sorted_train_cer_0.2.pkl",
-        "datasets/third/sorted_train_cer_0.2.pkl",
+        "datasets/first/sorted_train_cer_0.1.pkl",
+        "datasets/second/sorted_train_cer_0.1.pkl",
+        "datasets/third/sorted_train_cer_0.1.pkl",
+        "datasets/fourth/sorted_train_cer_0.1.pkl",
     ]
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",

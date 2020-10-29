@@ -19,4 +19,3 @@ if __name__ == "__main__":
     joblib.Parallel(n_jobs=6)(
         joblib.delayed(remove_file)(audio_f) for audio_f in tqdm.tqdm(files_to_trim)
     )
-
