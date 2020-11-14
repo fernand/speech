@@ -1,4 +1,4 @@
-CHARS = "_' abcdefghijklmopqrstuvwxyz"
+CHARS = "_' abcdefghijklmnopqrstuvwxyz"
 
 char_to_i = dict((c, i) for i, c in enumerate(CHARS))
 i_to_char = dict((i, c) for i, c in enumerate(CHARS))

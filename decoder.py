@@ -1,7 +1,7 @@
 import Levenshtein as Lev
 import torch
 
-import data
+import text
 
 
 def wer(s1, s2):
@@ -28,14 +28,12 @@ def greedy_decoder(output, labels, label_lengths, blank_label=0):
     targets = []
     for i, args in enumerate(arg_maxes):
         decode = []
-        targets.append(
-            data.text_transform.int_to_text(labels[i][: label_lengths[i]].tolist())
-        )
+        targets.append(text.int_to_text(labels[i][: label_lengths[i]].tolist()))
         for j, index in enumerate(args):
             if index != blank_label:
                 # Collapse repeats.
                 if j != 0 and index == args[j - 1]:
                     continue
                 decode.append(index.item())
-        decodes.append(data.text_transform.int_to_text(decode))
+        decodes.append(text.int_to_text(decode))
     return decodes, targets
