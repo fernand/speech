@@ -1,4 +1,5 @@
 import math
+import sys
 import time
 
 from comet_ml import Experiment
@@ -157,22 +158,44 @@ def main(hparams, experiment):
     torch.manual_seed(7)
     torch.backends.cudnn.benchmark = True
 
-    eval_datasets = [
-        dataset.replace("train", "eval") for dataset in hparams["train_dataset"]
-    ]
-    test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
-    train_dataset = data.SortedTV(hparams["train_dataset"], hparams["batch_size"])
-    # test_dataset = data.SortedLibriSpeech(
-    #    "datasets/librispeech/sorted_dev_clean_librispeech.pkl", hparams["batch_size"]
-    # )
-    # train_dataset = data.SortedLibriSpeech(
-    #    "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
-    # )
+    if hparams["dataset"] == "libri":
+        test_dataset = data.SortedLibriSpeech(
+            "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
+            hparams["batch_size"],
+        )
+        train_dataset = data.SortedLibriSpeech(
+            "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
+        )
+    elif hparams["dataset"] == "libri-cv":
+        test_dataset = data.SortedLibriSpeech(
+            "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
+            hparams["batch_size"],
+        )
+        train_dataset = data.CombinedLibriSpeechCommonVoice(
+            "datasets/librispeech/sorted_train_librispeech.pkl",
+            "datasets/commonvoice/sorted_train_commonvoice.pkl",
+            hparams["batch_size"],
+        )
+    elif hparams["dataset"] == "tv-1234":
+        train_dataset_paths = [
+            "datasets/first/sorted_train_cer_0.1.pkl",
+            "datasets/second/sorted_train_cer_0.1.pkl",
+            "datasets/third/sorted_train_cer_0.1.pkl",
+            "datasets/fourth/sorted_train_cer_0.1.pkl",
+        ]
+        eval_datasets = [
+            dataset.replace("train", "eval") for dataset in train_dataset_paths
+        ]
+        test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
+        train_dataset = data.SortedTV(train_dataset_paths, hparams["batch_size"])
+    else:
+        print("Unkown dataset", hparams["dataset"])
+        sys.exit(1)
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=None,
-        shuffle=hparams["shuffle"],
+        shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "train"),
         num_workers=3,
         pin_memory=True,
@@ -243,12 +266,7 @@ def main(hparams, experiment):
 
 
 if __name__ == "__main__":
-    train_dataset_path = [
-        "datasets/first/sorted_train_cer_0.1.pkl",
-        "datasets/second/sorted_train_cer_0.1.pkl",
-        "datasets/third/sorted_train_cer_0.1.pkl",
-        "datasets/fourth/sorted_train_cer_0.1.pkl",
-    ]
+    dataset = sys.argv[1]
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
@@ -256,7 +274,6 @@ if __name__ == "__main__":
         # disabled=True,
     )
     hparams = {
-        "shuffle": True,
         "batch_size": 32,
         "epochs": 20,
         "learning_rate": 3e-4,
@@ -267,6 +284,5 @@ if __name__ == "__main__":
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": data.N_MELS,
-        "train_dataset": train_dataset_path,
     }
     main(hparams, experiment)
