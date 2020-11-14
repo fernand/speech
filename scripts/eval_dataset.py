@@ -1,4 +1,5 @@
 import os
+import pickle
 import sys
 import time
 
@@ -18,6 +19,7 @@ def test(batch_size, model, test_loader, criterion):
     model.eval()
     test_loss = 0
     test_cer, test_wer = [], []
+    bad_cers = []
     with torch.no_grad():
         for I, batch in enumerate(test_loader):
             spectrograms, labels, label_lengths = batch
@@ -42,7 +44,10 @@ def test(batch_size, model, test_loader, criterion):
                 output.transpose(0, 1), labels, label_lengths
             )
             for j in range(len(decoded_preds)):
-                test_cer.append(decoder.cer(decoded_targets[j], decoded_preds[j]))
+                cer = decoder.cer(decoded_targets[j], decoded_preds[j])
+                test_cer.append(cer)
+                if cer >= 0.05:
+                    bad_cers.append((decoded_targets[j], decoded_preds[j], cer))
                 test_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
@@ -51,10 +56,13 @@ def test(batch_size, model, test_loader, criterion):
             test_loss, avg_cer, avg_wer
         )
     )
+    with open("bad_cers.pkl", "wb") as f:
+        pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
 
 if __name__ == "__main__":
-    model_file = sys.argv[1]
+    dataset_type = sys.argv[1]
+    model_file = sys.argv[2]
     hparams = {
         "shuffle": True,
         "batch_size": 32,
@@ -68,9 +76,25 @@ if __name__ == "__main__":
         "n_vocab": 28,
         "n_feats": data.N_MELS,
     }
-    dataset = data.SortedLibriSpeech(
-        "datasets/librispeech/sorted_test_clean_librispeech.pkl", hparams["batch_size"]
-    )
+    if dataset_type == "libri":
+        dataset = data.SortedLibriSpeech(
+            "datasets/librispeech/sorted_test_clean_librispeech.pkl",
+            hparams["batch_size"],
+        )
+    elif dataset_type == "tv":
+        train_dataset_paths = [
+            "datasets/first/sorted_train_cer_0.1.pkl",
+            "datasets/second/sorted_train_cer_0.1.pkl",
+            "datasets/third/sorted_train_cer_0.1.pkl",
+            "datasets/fourth/sorted_train_cer_0.1.pkl",
+        ]
+        eval_datasets = [
+            dataset.replace("train", "eval") for dataset in train_dataset_paths
+        ]
+        dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
+    else:
+        print("Unkown dataset", dataset_type)
+        sys.exit(1)
     model = net.SRModel(
         hparams["n_cnn_layers"],
         hparams["n_rnn_layers"],

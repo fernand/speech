@@ -6,7 +6,7 @@ import torch
 import torchaudio
 import torch.nn as nn
 
-from text import TextTransform
+import text
 
 N_MELS = 80
 
@@ -21,8 +21,6 @@ train_audio_transforms = nn.Sequential(
 valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
     sample_rate=16000, n_fft=400, hop_length=160, n_mels=N_MELS, power=1.0
 )
-
-text_transform = TextTransform()
 
 
 class SortedTV(torch.utils.data.Dataset):
@@ -104,7 +102,7 @@ def collate_fn(data, data_type="train"):
         else:
             spec = valid_audio_transforms(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        label = torch.LongTensor(text_transform.text_to_int(utterance.lower()))
+        label = torch.LongTensor(text.text_to_int(utterance.lower()))
         labels.append(label)
         label_lengths.append(len(label))
 
