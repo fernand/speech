@@ -3,6 +3,7 @@ import pickle
 import sys
 import time
 
+import ctcdecode
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,9 +12,18 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pard
 import data
 import net
 import decoder
+import text
 
 
-def test(batch_size, model, test_loader, criterion):
+def test(batch_size, model, test_loader, criterion, beam_decode):
+    if beam_decode:
+        beam_decoder = ctcdecode.CTCBeamDecoder(
+            labels=list(text.CHARS),
+            blank_id=0,
+            beam_width=100,
+            num_processes=4,
+            log_probs_input=True,
+        )
     print("\nevaluating…")
     model.eval()
     test_loss = 0
@@ -36,13 +46,24 @@ def test(batch_size, model, test_loader, criterion):
             loss = criterion(output, labels, input_lengths, label_lengths)
             test_loss += loss.item() / len(test_loader)
 
-            output = output.cpu()
+            output = output.cpu().transpose(0, 1)
             labels = labels.cpu()
             label_lengths = label_lengths.cpu()
-            decoded_preds, decoded_targets = decoder.greedy_decoder(
-                output.transpose(0, 1), labels, label_lengths
-            )
-            for j in range(len(decoded_preds)):
+            if beam_decode:
+                beam_results, _, _, out_len = beam_decoder.decode(output)
+                decoded_preds, decoded_targets = [], []
+                for j in range(batch_size):
+                    decoded_preds.append(
+                        text.int_to_text(beam_results[j][0][: out_len[j][0]].numpy())
+                    )
+                    decoded_targets.append(
+                        text.int_to_text(labels[j][: label_lengths[j]].tolist())
+                    )
+            else:
+                decoded_preds, decoded_targets = decoder.greedy_decoder(
+                    output, labels, label_lengths
+                )
+            for j in range(batch_size):
                 cer = decoder.cer(decoded_targets[j], decoded_preds[j])
                 test_cer.append(cer)
                 if cer >= 0.05:
@@ -55,13 +76,14 @@ def test(batch_size, model, test_loader, criterion):
             test_loss, avg_cer, avg_wer
         )
     )
-    with open("bad_cers.pkl", "wb") as f:
-        pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
+    # with open("bad_cers.pkl", "wb") as f:
+    #    pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
 
 if __name__ == "__main__":
-    dataset_type = sys.argv[1]
-    model_file = sys.argv[2]
+    beam_decode = eval(sys.argv[1])
+    dataset_type = sys.argv[2]
+    model_file = sys.argv[3]
     hparams = {
         "shuffle": True,
         "batch_size": 32,
@@ -111,7 +133,7 @@ if __name__ == "__main__":
         # Also shuffling at the clip level in data.py
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=2,
+        num_workers=3,
         pin_memory=True,
     )
-    test(hparams["batch_size"], model, test_loader, criterion)
+    test(hparams["batch_size"], model, test_loader, criterion, beam_decode)
