@@ -1,95 +1,166 @@
+import csv
 import os
 import pickle
 import random
+import sys
 
 import torch
 import torchaudio
 import torch.nn as nn
 
-import text
+from text import TextTransform
+
+torchaudio.set_audio_backend("sox_io")
 
 N_MELS = 80
+spectrogram_transform = torchaudio.transforms.MelSpectrogram(
+    sample_rate=16000, n_fft=400, hop_length=160, n_mels=N_MELS, power=1.0
+)
 
 train_audio_transforms = nn.Sequential(
-    torchaudio.transforms.MelSpectrogram(
-        sample_rate=16000, n_fft=400, hop_length=160, n_mels=N_MELS, power=1.0
-    ),
+    spectrogram_transform,
     torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
     torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
-valid_audio_transforms = torchaudio.transforms.MelSpectrogram(
-    sample_rate=16000, n_fft=400, hop_length=160, n_mels=N_MELS, power=1.0
+text_transform = TextTransform()
+
+COMMON_VOICE_BAD_FILES = set(
+    [
+        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_19999612.mp3",
+        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_20068848.mp3",
+        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_671901.mp3",
+        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_21791783.mp3",
+    ]
 )
 
 
-class SortedTV(torch.utils.data.Dataset):
-    def __init__(self, dataset_paths, batch_size):
+def get_librispeech_paths(dataset_path):
+    with open(dataset_path, "rb") as f:
+        paths = [(t[0], t[1] / 16000) for t in pickle.load(f)]
+    return paths
+
+
+def get_common_voice_paths(dataset_path):
+    with open("datasets/commonvoice/bad_files.pkl", "rb") as f:
+        bad_files = pickle.load(f)
+    bad_files = bad_files.union(COMMON_VOICE_BAD_FILES)
+    with open(dataset_path, "rb") as f:
+        paths = [
+            t for t in pickle.load(f) if t[0].replace(".mp3", ".wav") not in bad_files
+        ]
+    return paths
+
+
+def get_librispeech_clip(audio_path):
+    audio_path = audio_path.replace("/data", "/hd1")
+    path, filename = os.path.split(audio_path)
+    fileid = filename.split(".")[0]
+    speaker_id, chapter_id, utterance_id = fileid.split("-")
+
+    file_text = speaker_id + "-" + chapter_id + ".trans.txt"
+    file_text = os.path.join(path, file_text)
+
+    waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
+
+    with open(file_text) as f:
+        for line in f:
+            fileid_text, utterance = line.strip().split(" ", 1)
+            if fileid == fileid_text:
+                break
+        else:
+            raise FileNotFoundError("Translation not found for " + audio_path)
+
+    return (waveform, utterance)
+
+
+def get_common_voice_clip(audio_path):
+    audio_path = audio_path.replace(".mp3", ".wav")
+    text_path = audio_path.replace(".wav", ".txt")
+    waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
+    with open(text_path) as f:
+        utterance = f.read().strip()
+    return (waveform, utterance)
+
+
+class SortedDataset(torch.utils.data.Dataset):
+    def __init__(self, batch_size):
         self.batch_size = batch_size
         self.paths = []
+
+    def __len__(self):
+        return len(self.paths) // self.batch_size
+
+    def __getitem__(self, i):
+        return [
+            self.get_clip(j)
+            for j in range(i * self.batch_size, (i + 1) * self.batch_size)
+        ]
+
+    def get_clip(self, i):
+        pass
+
+
+class SortedTV(SortedDataset):
+    def __init__(self, dataset_paths, batch_size):
+        super().__init__(batch_size)
         for dataset_path in dataset_paths:
             with open(dataset_path, "rb") as f:
                 paths = [t[0] for t in pickle.load(f)]
                 paths = [p.replace("/data", "/hd1") for p in paths]
                 self.paths.extend(paths)
 
-    def __len__(self):
-        return len(self.paths) // self.batch_size
-
-    def __getitem__(self, i):
-        return [
-            self.get_clip(j)
-            for j in range(i * self.batch_size, (i + 1) * self.batch_size)
-        ]
-
     def get_clip(self, i):
         audio_path = self.paths[i]
         text_path = audio_path.strip(".wav") + ".txt"
-        waveform, sample_rate = torchaudio.load(audio_path, normalization=True)
+        waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
         with open(text_path) as f:
             utterance = f.read().strip()
         return (waveform, utterance)
 
 
-class SortedLibriSpeech(torch.utils.data.Dataset):
+class SortedLibriSpeech(SortedDataset):
     def __init__(self, dataset_path, batch_size):
+        super().__init__(batch_size)
         assert dataset_path.endswith(".pkl")
-        self.batch_size = batch_size
-        with open(dataset_path, "rb") as f:
-            self.paths = [t[0] for t in pickle.load(f)]
+        self.paths = [t[0] for t in get_librispeech_paths(dataset_path)]
         if "train" in dataset_path:
             # Remove the longest clips.
             self.paths = self.paths[:-1000]
 
-    def __len__(self):
-        return len(self.paths) // self.batch_size
+    def get_clip(self, i):
+        return get_librispeech_clip(self.paths[i].replace("/data", "/hd1"))
 
-    def __getitem__(self, i):
-        return [
-            self.get_clip(j)
-            for j in range(i * self.batch_size, (i + 1) * self.batch_size)
-        ]
+
+class SortedCommonVoice(SortedDataset):
+    def __init__(self, dataset_path, batch_size):
+        super().__init__(batch_size)
+        assert dataset_path.endswith(".pkl")
+        self.paths = [t[0] for t in get_common_voice_paths(dataset_path)]
 
     def get_clip(self, i):
-        audio_path = self.paths[i].replace("/data", "/hd1")
-        path, filename = os.path.split(audio_path)
-        fileid = filename.split(".")[0]
-        speaker_id, chapter_id, utterance_id = fileid.split("-")
+        return get_common_voice_clip(self.paths[i])
 
-        file_text = speaker_id + "-" + chapter_id + ".trans.txt"
-        file_text = os.path.join(path, file_text)
 
-        waveform, sample_rate = torchaudio.load(audio_path, normalization=True)
+class CombinedLibriSpeechCommonVoice(SortedDataset):
+    def __init__(self, librispeech_dataset_path, commonvoice_dataset_path, batch_size):
+        super().__init__(batch_size)
+        assert librispeech_dataset_path.endswith(".pkl")
+        assert commonvoice_dataset_path.endswith(".pkl")
+        tuples = get_librispeech_paths(librispeech_dataset_path)
+        tuples.extend(get_common_voice_paths(commonvoice_dataset_path))
+        tuples = sorted(tuples, key=lambda t: t[1])
+        self.paths = [t[0] for t in tuples]
 
-        with open(file_text) as f:
-            for line in f:
-                fileid_text, utterance = line.strip().split(" ", 1)
-                if fileid == fileid_text:
-                    break
-            else:
-                raise FileNotFoundError("Translation not found for " + audio_path)
-
-        return (waveform, utterance)
+    def get_clip(self, i):
+        audio_path = self.paths[i]
+        if "LibriSpeech" in audio_path:
+            return get_librispeech_clip(audio_path)
+        elif "cv-corpus" in audio_path:
+            return get_common_voice_clip(self.paths[i])
+        else:
+            print(audio_path, "in neither LibriSpeech or Common Voice datasets.")
+            sys.exit(1)
 
 
 def collate_fn(data, data_type="train"):
@@ -100,9 +171,9 @@ def collate_fn(data, data_type="train"):
         if data_type == "train":
             spec = train_audio_transforms(waveform).squeeze(0).transpose(0, 1)
         else:
-            spec = valid_audio_transforms(waveform).squeeze(0).transpose(0, 1)
+            spec = spectrogram_transform(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        label = torch.LongTensor(text.text_to_int(utterance.lower()))
+        label = torch.LongTensor(text_transform.text_to_int(utterance.lower()))
         labels.append(label)
         label_lengths.append(len(label))
 
