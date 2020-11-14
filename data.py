@@ -8,7 +8,7 @@ import torch
 import torchaudio
 import torch.nn as nn
 
-from text import TextTransform
+import text
 
 torchaudio.set_audio_backend("sox_io")
 
@@ -22,8 +22,6 @@ train_audio_transforms = nn.Sequential(
     torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
     torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
-
-text_transform = TextTransform()
 
 COMMON_VOICE_BAD_FILES = set(
     [
@@ -173,7 +171,7 @@ def collate_fn(data, data_type="train"):
         else:
             spec = spectrogram_transform(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        label = torch.LongTensor(text_transform.text_to_int(utterance.lower()))
+        label = torch.LongTensor(text.text_to_int(utterance.lower()))
         labels.append(label)
         label_lengths.append(len(label))
 

@@ -1,7 +1,7 @@
-chars = "_' abcdefghijklmopqrstuvwxyz"
+CHARS = "_' abcdefghijklmopqrstuvwxyz"
 
-char_to_i = dict((c, i) for i, c in enumerate(chars))
-i_to_char = dict((i, c) for i, c in enumerate(chars))
+char_to_i = dict((c, i) for i, c in enumerate(CHARS))
+i_to_char = dict((i, c) for i, c in enumerate(CHARS))
 
 
 def text_to_int(text):
