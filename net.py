@@ -71,8 +71,6 @@ class SRModel(nn.Module):
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
         x = self.feature_ln(x)
         x, _ = self.birnn_layers(x)  # T, B, C*2
-        # TODO: don't do nn_rnn_compatible_return then do it here to only have 1 contiguous.
-        # SRU return shape is 4D https://github.com/asappresearch/sru/blob/master/sru/sru_functional.py#L621
         x = (
             x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
         )  # T,B,C*2 -> T,B,C by sum
