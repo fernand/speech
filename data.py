@@ -66,8 +66,6 @@ def get_librispeech_clip(audio_path):
             fileid_text, utterance = line.strip().split(" ", 1)
             if fileid == fileid_text:
                 break
-        else:
-            raise FileNotFoundError("Translation not found for " + audio_path)
 
     return (waveform, utterance)
 

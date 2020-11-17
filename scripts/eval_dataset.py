@@ -15,10 +15,19 @@ import decoder
 import text
 
 
-def test(batch_size, model, test_loader, criterion, beam_decode):
+def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
     if beam_decode:
+        if dataset_type == "tv":
+            model_path = "tv-1234-lm.arpa"
+        elif dataset_type == "libri":
+            model_path = "libri-lm.arpa"
+        else:
+            print("No LM for dataset.")
+            sys.exit(1)
         beam_decoder = ctcdecode.CTCBeamDecoder(
             labels=list(text.CHARS),
+            model_path=model_path,
+            beta=0.4,
             blank_id=0,
             beam_width=100,
             num_processes=4,
@@ -97,6 +106,17 @@ if __name__ == "__main__":
         "n_vocab": 28,
         "n_feats": data.N_MELS,
     }
+    model = net.SRModel(
+        hparams["n_cnn_layers"],
+        hparams["n_rnn_layers"],
+        hparams["rnn_dim"],
+        hparams["n_vocab"],
+        hparams["n_feats"],
+        hparams["dropout"],
+    )
+    if dataset_type == "libri":
+        model = torch.nn.DataParallel(model)
+    model.cuda()
     if dataset_type == "libri":
         dataset = data.SortedLibriSpeech(
             "datasets/librispeech/sorted_test_clean_librispeech.pkl",
@@ -116,15 +136,6 @@ if __name__ == "__main__":
     else:
         print("Unkown dataset", dataset_type)
         sys.exit(1)
-    model = net.SRModel(
-        hparams["n_cnn_layers"],
-        hparams["n_rnn_layers"],
-        hparams["rnn_dim"],
-        hparams["n_vocab"],
-        hparams["n_feats"],
-        hparams["dropout"],
-    )
-    model.cuda()
     model.load_state_dict(torch.load(model_file))
     criterion = torch.nn.CTCLoss(blank=0).cuda()
     test_loader = torch.utils.data.DataLoader(
@@ -136,4 +147,6 @@ if __name__ == "__main__":
         num_workers=3,
         pin_memory=True,
     )
-    test(hparams["batch_size"], model, test_loader, criterion, beam_decode)
+    test(
+        dataset_type, hparams["batch_size"], model, test_loader, criterion, beam_decode
+    )

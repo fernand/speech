@@ -219,12 +219,7 @@ def main(hparams, experiment):
     )
     model.cuda()
     optimizer = apex.optimizers.FusedAdam(
-        model.parameters(),
-        lr=hparams["learning_rate"],
-        adam_w_mode=True,
-        weight_decay=1e-6,
-        # Different than default Pytorch.
-        amsgrad=False,
+        model.parameters(), lr=hparams["learning_rate"]
     )
     model, optimizer = apex.amp.initialize(model, optimizer, opt_level="O2")
 
