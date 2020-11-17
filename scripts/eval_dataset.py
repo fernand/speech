@@ -7,6 +7,7 @@ import ctcdecode
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import jamspell
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 import data
@@ -14,20 +15,31 @@ import net
 import decoder
 import text
 
+SPELLING_CORRECT = False
+
 
 def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
+    if SPELLING_CORRECT:
+        corrector = jamspell.TSpellCorrector()
+        if dataset_type == "tv":
+            corrector.LoadLangModel("lm/tv-1234.bin")
+        elif dataset_type == "libri":
+            corrector.LoadLangModel("lm/libri.bin")
+        else:
+            print("No LM for dataset.")
+            sys.exit(1)
     if beam_decode:
         if dataset_type == "tv":
-            model_path = "tv-1234-lm.arpa"
+            model_path = "lm/tv-1234-lm.arpa"
         elif dataset_type == "libri":
-            model_path = "libri-lm.arpa"
+            model_path = "lm/libri-lm.arpa"
         else:
             print("No LM for dataset.")
             sys.exit(1)
         beam_decoder = ctcdecode.CTCBeamDecoder(
             labels=list(text.CHARS),
             model_path=model_path,
-            beta=0.4,
+            beta=0.1,
             blank_id=0,
             beam_width=100,
             num_processes=4,
@@ -73,7 +85,11 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
                     output, labels, label_lengths
                 )
             for j in range(batch_size):
-                cer = decoder.cer(decoded_targets[j], decoded_preds[j])
+                if SPELLING_CORRECT:
+                    fixed_pred = corrector.FixFragment(decoded_preds[j])
+                    cer = decoder.cer(decoded_targets[j], fixed_pred)
+                else:
+                    cer = decoder.cer(decoded_targets[j], decoded_preds[j])
                 test_cer.append(cer)
                 if cer >= 0.05:
                     bad_cers.append((decoded_targets[j], decoded_preds[j], cer))
@@ -85,8 +101,8 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
             test_loss, avg_cer, avg_wer
         )
     )
-    # with open("bad_cers.pkl", "wb") as f:
-    #    pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
+    with open("bad_cers.pkl", "wb") as f:
+        pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
 
 if __name__ == "__main__":
