@@ -130,6 +130,9 @@ if __name__ == "__main__":
         hparams["n_feats"],
         hparams["dropout"],
     )
+    if not hasattr(model.birnn_layers, "tanh") or model.birnn_layers.use_tanh == False:
+        print("Need to use tanh for the old models.")
+        sys.exit(1)
     if dataset_type == "libri":
         model = torch.nn.DataParallel(model)
     model.cuda()
@@ -149,6 +152,8 @@ if __name__ == "__main__":
             dataset.replace("train", "eval") for dataset in train_dataset_paths
         ]
         dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
+    elif dataset_type == "eval_high_cer":
+        dataset = data.SortedTV(["eval_paths_0.21cer.pkl"], hparams["batch_size"])
     else:
         print("Unkown dataset", dataset_type)
         sys.exit(1)
