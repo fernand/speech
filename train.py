@@ -177,10 +177,10 @@ def main(hparams, experiment):
         )
     elif hparams["dataset"] == "tv-1234":
         train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.1.pkl",
-            "datasets/second/sorted_train_cer_0.1.pkl",
-            "datasets/third/sorted_train_cer_0.1.pkl",
-            "datasets/fourth/sorted_train_cer_0.1.pkl",
+            "datasets/first/sorted_train_cer_0.2.pkl",
+            "datasets/second/sorted_train_cer_0.2.pkl",
+            "datasets/third/sorted_train_cer_0.2.pkl",
+            "datasets/fourth/sorted_train_cer_0.2.pkl",
         ]
         eval_datasets = [
             dataset.replace("train", "eval") for dataset in train_dataset_paths
@@ -268,6 +268,7 @@ if __name__ == "__main__":
         # disabled=True,
     )
     hparams = {
+        "dataset": dataset,
         "batch_size": 32,
         "epochs": 20,
         "learning_rate": 3e-4,

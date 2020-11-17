@@ -54,7 +54,6 @@ class SRModel(nn.Module):
             num_layers=n_rnn_layers,
             dropout=dropout,
             layer_norm=True,
-            use_tanh=True,
             bidirectional=True,
             nn_rnn_compatible_return=True,
         )
