@@ -130,9 +130,6 @@ if __name__ == "__main__":
         hparams["n_feats"],
         hparams["dropout"],
     )
-    if not hasattr(model.birnn_layers, "tanh") or model.birnn_layers.use_tanh == False:
-        print("Need to use tanh for the old models.")
-        sys.exit(1)
     if dataset_type == "libri":
         model = torch.nn.DataParallel(model)
     model.cuda()
@@ -168,6 +165,9 @@ if __name__ == "__main__":
         num_workers=3,
         pin_memory=True,
     )
+    print("===========================================================")
+    print("DON'T FORGET TO USE TANH!!!")
+    print("===========================================================")
     test(
         dataset_type, hparams["batch_size"], model, test_loader, criterion, beam_decode
     )
