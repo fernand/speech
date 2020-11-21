@@ -53,7 +53,7 @@ class SRModel(nn.Module):
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
             dropout=dropout,
-            rescale=True,
+            rescale=False,
             layer_norm=True,
             bidirectional=True,
             nn_rnn_compatible_return=True,
