@@ -45,7 +45,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
             num_processes=4,
             log_probs_input=True,
         )
-    print("\nevaluating…")
+    print("\nevaluating...")
     model.eval()
     test_loss = 0
     test_cer, test_wer = [], []
@@ -130,7 +130,7 @@ if __name__ == "__main__":
         hparams["n_feats"],
         hparams["dropout"],
     )
-    if dataset_type == "libri":
+    if "libri" in model_file:
         model = torch.nn.DataParallel(model)
     model.cuda()
     if dataset_type == "libri":
