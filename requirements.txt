@@ -1,0 +1,13 @@
+# Capture: tsduck, linux-mediatree hauppauge
+# eSpeak, ffmpeg static build
+# conda install pytorch torchaudio torchtext cudatoolkit=11.0 -c pytorch
+# apex, ctcdecode, silero
+aeneas
+comet_ml
+joblib
+omegaconf
+python-Levenshtein
+scipy
+sox
+sru
+tqdm
