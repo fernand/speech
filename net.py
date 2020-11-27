@@ -63,7 +63,6 @@ class SRModel(nn.Module):
             use_tanh=False,
             layer_norm=True,
             bidirectional=True,
-            nn_rnn_compatible_return=True,
         )
         self.classifier = nn.Sequential(
             apex.normalization.FusedLayerNorm(rnn_dim),
