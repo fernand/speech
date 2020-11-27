@@ -39,7 +39,13 @@ class ResidualBlock(nn.Module):
 
 class SRModel(nn.Module):
     def __init__(
-        self, n_cnn_layers, n_rnn_layers, rnn_dim, n_vocab, n_feats, dropout=0.1,
+        self,
+        n_cnn_layers,
+        n_rnn_layers,
+        rnn_dim,
+        n_vocab,
+        n_feats,
+        dropout=0.1,
     ):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)

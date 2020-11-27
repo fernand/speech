@@ -81,6 +81,7 @@ def get_common_voice_clip(audio_path):
 
 class SortedDataset(torch.utils.data.Dataset):
     def __init__(self, batch_size):
+        super().__init__()
         self.batch_size = batch_size
         self.paths = []
 
@@ -95,6 +96,27 @@ class SortedDataset(torch.utils.data.Dataset):
 
     def get_clip(self, i):
         pass
+
+
+class IBMDataset(torch.utils.data.Dataset):
+    def __init__(self):
+        super().__init__()
+        audio_paths = [
+            os.path.join("/data/ibm", f)
+            for f in os.listdir("/data/ibm")
+            if f.endswith("wav")
+        ]
+        self.paths = audio_paths
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, i):
+        audio_path = self.paths[i]
+        waveform, _ = torchaudio.load(audio_path, normalize=True)
+        with open(audio_path.replace(".wav", ".txt")) as f:
+            utterance = f.read().strip()
+        return (waveform, utterance)
 
 
 class SortedTV(SortedDataset):

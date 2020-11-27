@@ -53,6 +53,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
     with torch.no_grad():
         for I, batch in enumerate(test_loader):
             spectrograms, labels, label_lengths = batch
+            current_batch_size = labels.size(0)
             spectrograms = spectrograms.cuda()
 
             output = model(spectrograms)  # B, T, n_vocab+1
@@ -60,7 +61,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
             output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
 
             input_lengths = torch.full(
-                (batch_size,), output.size(0), dtype=torch.int32
+                (current_batch_size,), output.size(0), dtype=torch.int32
             ).cuda()
             label_lengths = label_lengths.cuda()
             labels = labels.cuda()
@@ -73,7 +74,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
             if beam_decode:
                 beam_results, _, _, out_len = beam_decoder.decode(output)
                 decoded_preds, decoded_targets = [], []
-                for j in range(batch_size):
+                for j in range(current_batch_size):
                     decoded_preds.append(
                         text.int_to_text(beam_results[j][0][: out_len[j][0]].numpy())
                     )
@@ -84,7 +85,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
                 decoded_preds, decoded_targets = decoder.greedy_decoder(
                     output, labels, label_lengths
                 )
-            for j in range(batch_size):
+            for j in range(current_batch_size):
                 if SPELLING_CORRECT:
                     fixed_pred = corrector.FixFragment(decoded_preds[j])
                     cer = decoder.cer(decoded_targets[j], fixed_pred)
@@ -133,6 +134,7 @@ if __name__ == "__main__":
     if "libri" in model_file:
         model = torch.nn.DataParallel(model)
     model.cuda()
+    batch_size = None
     if dataset_type == "libri":
         dataset = data.SortedLibriSpeech(
             "datasets/librispeech/sorted_test_clean_librispeech.pkl",
@@ -149,6 +151,9 @@ if __name__ == "__main__":
             dataset.replace("train", "eval") for dataset in train_dataset_paths
         ]
         dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
+    elif dataset_type == "ibm":
+        dataset = data.IBMDataset()
+        batch_size = hparams["batch_size"]
     elif dataset_type == "eval_high_cer":
         dataset = data.SortedTV(["eval_paths_0.21cer.pkl"], hparams["batch_size"])
     else:
@@ -158,7 +163,7 @@ if __name__ == "__main__":
     criterion = torch.nn.CTCLoss(blank=0).cuda()
     test_loader = torch.utils.data.DataLoader(
         dataset=dataset,
-        batch_size=None,
+        batch_size=batch_size,
         # Also shuffling at the clip level in data.py
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
