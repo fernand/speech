@@ -70,6 +70,7 @@ if __name__ == "__main__":
         output = model(wavs).cpu()
         predictions = [model_decoder(output[i]) for i in range(len(output))]
         for transcript, prediction in zip(transcripts, predictions):
+            # print(transcript, prediction)
             if len(prediction.strip()) == 0:
                 char_error = 1.0
                 word_error = 1.0

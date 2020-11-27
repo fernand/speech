@@ -17,7 +17,7 @@ import text
 
 def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
     if beam_decode:
-        if dataset_type == "tv":
+        if dataset_type == "tv" or dataset_type == "ibm":
             model_path = "lm/tv-1234-lm.arpa"
         elif dataset_type == "libri":
             model_path = "lm/libri-lm.arpa"
@@ -74,6 +74,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
                     output, labels, label_lengths
                 )
             for j in range(current_batch_size):
+                # print(decoded_targets[j], decoded_preds[j])
                 cer = decoder.cer(decoded_targets[j], decoded_preds[j])
                 test_cer.append(cer)
                 if cer >= 0.05:
@@ -148,8 +149,7 @@ if __name__ == "__main__":
     test_loader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=batch_size,
-        # Also shuffling at the clip level in data.py
-        shuffle=True,
+        shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=3,
         pin_memory=True,
