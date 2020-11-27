@@ -67,7 +67,7 @@ def get_librispeech_clip(audio_path):
             if fileid == fileid_text:
                 break
 
-    return (waveform, utterance)
+    return (waveform, utterance.lower())
 
 
 def get_common_voice_clip(audio_path):
@@ -191,7 +191,7 @@ def collate_fn(data, data_type="train"):
         else:
             spec = spectrogram_transform(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        label = torch.LongTensor(text.text_to_int(utterance.lower()))
+        label = torch.LongTensor(text.text_to_int(utterance))
         labels.append(label)
         label_lengths.append(len(label))
 
