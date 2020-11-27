@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pard
 from decoder import cer, wer
 from silero import prepare_model_input, load_silero_model, wav_to_text
 
-torchaudio.set_audio_backend("soundfile")
+torchaudio.set_audio_backend("sox_id")
 
 
 class WavDataset(torch.utils.data.Dataset):
@@ -26,7 +26,7 @@ class WavDataset(torch.utils.data.Dataset):
     def __getitem__(self, i):
         audio_f = os.path.join(self.input_dir, self.audio_files[i])
         try:
-            wav, sr = torchaudio.load(audio_f, normalization=True, channels_first=True)
+            wav, sr = torchaudio.load(audio_f, normalize=True)
             wav = wav.squeeze(0)
         except:
             wav = torch.FloatTensor([])
