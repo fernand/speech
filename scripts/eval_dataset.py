@@ -7,7 +7,6 @@ import ctcdecode
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import jamspell
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 import data
@@ -15,19 +14,8 @@ import net
 import decoder
 import text
 
-SPELLING_CORRECT = False
-
 
 def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
-    if SPELLING_CORRECT:
-        corrector = jamspell.TSpellCorrector()
-        if dataset_type == "tv":
-            corrector.LoadLangModel("lm/tv-1234.bin")
-        elif dataset_type == "libri":
-            corrector.LoadLangModel("lm/libri.bin")
-        else:
-            print("No LM for dataset.")
-            sys.exit(1)
     if beam_decode:
         if dataset_type == "tv":
             model_path = "lm/tv-1234-lm.arpa"
@@ -86,11 +74,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
                     output, labels, label_lengths
                 )
             for j in range(current_batch_size):
-                if SPELLING_CORRECT:
-                    fixed_pred = corrector.FixFragment(decoded_preds[j])
-                    cer = decoder.cer(decoded_targets[j], fixed_pred)
-                else:
-                    cer = decoder.cer(decoded_targets[j], decoded_preds[j])
+                cer = decoder.cer(decoded_targets[j], decoded_preds[j])
                 test_cer.append(cer)
                 if cer >= 0.05:
                     bad_cers.append((decoded_targets[j], decoded_preds[j], cer))
@@ -102,8 +86,8 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
             test_loss, avg_cer, avg_wer
         )
     )
-    with open("bad_cers.pkl", "wb") as f:
-        pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
+    # with open("bad_cers.pkl", "wb") as f:
+    #    pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
 
 if __name__ == "__main__":
@@ -142,10 +126,10 @@ if __name__ == "__main__":
         )
     elif dataset_type == "tv":
         train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.1.pkl",
-            "datasets/second/sorted_train_cer_0.1.pkl",
-            "datasets/third/sorted_train_cer_0.1.pkl",
-            "datasets/fourth/sorted_train_cer_0.1.pkl",
+            "datasets/first/sorted_train_cer_0.2.pkl",
+            "datasets/second/sorted_train_cer_0.2.pkl",
+            "datasets/third/sorted_train_cer_0.2.pkl",
+            "datasets/fourth/sorted_train_cer_0.2.pkl",
         ]
         eval_datasets = [
             dataset.replace("train", "eval") for dataset in train_dataset_paths
