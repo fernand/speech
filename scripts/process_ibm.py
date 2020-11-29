@@ -10,6 +10,7 @@ MULTI_SPACE_REGEXP = re.compile(r"\s+")
 
 OUTPUT_DIR = "/data/ibm"
 
+
 def split_write_audio_text(audio_f, transcripts):
     sr, y = scipy.io.wavfile.read(audio_f)
     assert sr == 16000
@@ -24,8 +25,11 @@ def split_write_audio_text(audio_f, transcripts):
         with open(audio_output_f.replace(".wav", ".txt"), "w") as f:
             f.write(transcript[2])
 
+
 def get_transcripts(audio_path):
-    transcript_path = audio_path.replace('wav.downsampled', 'trs').replace('.wav', '.trs')
+    transcript_path = audio_path.replace("wav.downsampled", "trs").replace(
+        ".wav", ".trs"
+    )
     at_turn = False
     after_turn = False
     last_sync = None
@@ -61,11 +65,16 @@ def clean_transcript(transcript):
     transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
     return transcript.strip()
 
+
 def parse_sync(line):
     return float(line.split('"')[1])
 
-if __name__ == '__main__':
-    audio_path = sys.argv[1]
-    transcripts = get_transcripts(audio_path)
-    split_write_audio_text(audio_path, transcripts)
 
+if __name__ == "__main__":
+    audio_paths = []
+    with open("scripts/ibm_test.txt") as f:
+        for l in f:
+            audio_paths.append(l.strip())
+    for audio_path in audio_paths:
+        transcripts = get_transcripts(audio_path)
+        split_write_audio_text(audio_path, transcripts)
