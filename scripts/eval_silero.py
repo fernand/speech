@@ -20,6 +20,7 @@ def collate_fn(data):
 
 if __name__ == "__main__":
     dataset_type = sys.argv[1]
+    loader_batch_size = 96
 
     device = torch.device(f"cuda:0")
     model, model_decoder = silero.load_silero_model(device)
@@ -72,8 +73,8 @@ if __name__ == "__main__":
             else:
                 char_error = cer(transcript, prediction)
                 word_error = wer(transcript, prediction)
-            if char_error > 0:
-                print(transcript, prediction)
+            # if char_error > 0:
+            #    print(transcript, prediction)
             test_cer.append(char_error)
             test_wer.append(word_error)
 

@@ -29,7 +29,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
             model_path=model_path,
             beta=0.1,
             blank_id=0,
-            beam_width=100,
+            beam_width=400,
             num_processes=4,
             log_probs_input=True,
         )
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     model_file = sys.argv[3]
     hparams = {
         "shuffle": True,
-        "batch_size": 32,
+        "batch_size": 64,
         "epochs": 15,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
@@ -154,9 +154,6 @@ if __name__ == "__main__":
         num_workers=3,
         pin_memory=True,
     )
-    print("===========================================================")
-    print("DON'T FORGET TO USE TANH!!!")
-    print("===========================================================")
     test(
         dataset_type, hparams["batch_size"], model, test_loader, criterion, beam_decode
     )
