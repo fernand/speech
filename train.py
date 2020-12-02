@@ -177,10 +177,10 @@ def main(hparams, experiment):
         )
     elif hparams["dataset"] == "tv-1234":
         train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.15.pkl",
-            "datasets/second/sorted_train_cer_0.15.pkl",
-            "datasets/third/sorted_train_cer_0.15.pkl",
-            "datasets/fourth/sorted_train_cer_0.15.pkl",
+            "datasets/first/sorted_train_cer_0.1.pkl",
+            "datasets/second/sorted_train_cer_0.1.pkl",
+            "datasets/third/sorted_train_cer_0.1.pkl",
+            "datasets/fourth/sorted_train_cer_0.1.pkl",
         ]
         eval_datasets = [
             dataset.replace("train", "eval") for dataset in train_dataset_paths
@@ -217,6 +217,11 @@ def main(hparams, experiment):
         hparams["n_feats"],
         hparams["dropout"],
     )
+    # model.load_state_dict(
+    #    torch.load(
+    #        "good_models/v2-sru-1234-0.1cer/model_f4dd9b8968b94ee6b278266af30dfcef.pth"
+    #    )
+    # )
     model.cuda()
     optimizer = apex.optimizers.FusedAdam(
         model.parameters(), lr=hparams["learning_rate"]
