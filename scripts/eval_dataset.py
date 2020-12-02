@@ -116,8 +116,6 @@ if __name__ == "__main__":
         hparams["n_feats"],
         hparams["dropout"],
     )
-    if "libri" in model_file:
-        model = torch.nn.DataParallel(model)
     model.cuda()
     batch_size = None
     if dataset_type == "libri":
