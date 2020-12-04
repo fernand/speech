@@ -112,9 +112,18 @@ class SRModel(nn.Module):
             layer_norm=True,
             bidirectional=True,
         )
+        lstm_dim = 2048
+        self.lstm = torch.nn.LSTM(
+            input_size=rnn_dim,
+            hidden_size=lstm_dim,
+            num_layers=1,
+            batch_first=False,
+            dropout=0.0,
+            bidirectional=True,
+        )
         self.classifier = nn.Sequential(
-            apex.normalization.FusedLayerNorm(rnn_dim),
-            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
+            apex.normalization.FusedLayerNorm(lstm_dim),
+            nn.Linear(lstm_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):
@@ -126,6 +135,10 @@ class SRModel(nn.Module):
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
         x = self.feature_ln(x)
         x, _ = self.birnn_layers(x)  # T, B, C*2
+        x = (
+            x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
+        )  # T,B,C*2 -> T,B,C by sum
+        x, _ = self.lstm(x)
         x = (
             x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
         )  # T,B,C*2 -> T,B,C by sum
