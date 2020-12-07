@@ -175,18 +175,25 @@ def main(hparams, experiment):
             "datasets/commonvoice/sorted_train_commonvoice.pkl",
             hparams["batch_size"],
         )
-    elif hparams["dataset"] == "tv-1234":
-        train_dataset_paths = [
+    elif hparams["dataset"].startswith("tv-1234"):
+        tv_train_dataset_paths = [
             "datasets/first/sorted_train_cer_0.1.pkl",
             "datasets/second/sorted_train_cer_0.1.pkl",
             "datasets/third/sorted_train_cer_0.1.pkl",
             "datasets/fourth/sorted_train_cer_0.1.pkl",
         ]
-        eval_datasets = [
-            dataset.replace("train", "eval") for dataset in train_dataset_paths
+        tv_eval_datasets = [
+            dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
         ]
-        test_dataset = data.SortedTV(eval_datasets, hparams["batch_size"])
-        train_dataset = data.SortedTV(train_dataset_paths, hparams["batch_size"])
+        test_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"])
+        if hparams["dataset"].endswith("libri"):
+            train_dataset = data.CombinedTVLibriSpeech(
+                "datasets/librispeech/sorted_train_librispeech.pkl",
+                tv_train_dataset_paths,
+                hparams["batch_size"],
+            )
+        else:
+            train_dataset = data.SortedTV(tv_train_dataset_paths, hparams["batch_size"])
     else:
         print("Unkown dataset", hparams["dataset"])
         sys.exit(1)

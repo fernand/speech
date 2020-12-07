@@ -171,7 +171,9 @@ class CombinedTVLibriSpeech(SortedDataset):
         tuples = get_librispeech_paths(librispeech_dataset_path)
         for dataset_path in tv_dataset_paths:
             with open(dataset_path, "rb") as f:
-                tuples.extend([(t[0].replace("/data", "/hd1"), t[1]) for t in f])
+                tuples.extend(
+                    [(t[0].replace("/data", "/hd1"), t[1]) for t in pickle.load(f)]
+                )
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]
 
