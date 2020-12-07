@@ -79,6 +79,14 @@ def get_common_voice_clip(audio_path):
     return (waveform, utterance)
 
 
+def get_tv_clip(audio_path):
+    text_path = audio_path.strip(".wav") + ".txt"
+    waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
+    with open(text_path) as f:
+        utterance = f.read().strip()
+    return (waveform, utterance)
+
+
 class SortedDataset(torch.utils.data.Dataset):
     def __init__(self, batch_size):
         super().__init__()
@@ -130,11 +138,7 @@ class SortedTV(SortedDataset):
 
     def get_clip(self, i):
         audio_path = self.paths[i]
-        text_path = audio_path.strip(".wav") + ".txt"
-        waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
-        with open(text_path) as f:
-            utterance = f.read().strip()
-        return (waveform, utterance)
+        return get_tv_clip(audio_path)
 
 
 class SortedLibriSpeech(SortedDataset):
@@ -158,6 +162,28 @@ class SortedCommonVoice(SortedDataset):
 
     def get_clip(self, i):
         return get_common_voice_clip(self.paths[i])
+
+
+class CombinedTVLibriSpeech(SortedDataset):
+    def __init__(self, librispeech_dataset_path, tv_dataset_paths, batch_size):
+        super().__init__(batch_size)
+        assert librispeech_dataset_path.endswith(".pkl")
+        tuples = get_librispeech_paths(librispeech_dataset_path)
+        for dataset_path in tv_dataset_paths:
+            with open(dataset_path, "rb") as f:
+                tuples.extend([(t[0].replace("/data", "/hd1"), t[1]) for t in f])
+        tuples = sorted(tuples, key=lambda t: t[1])
+        self.paths = [t[0] for t in tuples]
+
+    def get_clip(self, i):
+        audio_path = self.paths[i]
+        if "LibriSpeech" in audio_path:
+            return get_librispeech_clip(audio_path)
+        elif "clean" in audio_path:
+            return get_tv_clip(audio_path)
+        else:
+            print(audio_path, "in neither LibriSpeech or TV datasets.")
+            sys.exit(1)
 
 
 class CombinedLibriSpeechCommonVoice(SortedDataset):
