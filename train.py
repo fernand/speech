@@ -103,7 +103,7 @@ def train(
 
 
 def test(
-    batch_size, model, test_loader, criterion, epoch, iter_meter, experiment, last_loss
+    batch_size, model, test_loader, criterion, epoch, iter_meter, experiment, last_cer
 ):
     print("\nevaluating…")
     model.eval()
@@ -146,10 +146,10 @@ def test(
             test_loss, avg_cer, avg_wer
         )
     )
-    if test_loss < last_loss:
+    if avg_cer < last_cer:
         exp_id = experiment.url.split("/")[-1]
         torch.save(model.state_dict(), f"model_{exp_id}.pth")
-    return test_loss
+    return avg_cer
 
 
 def main(hparams, experiment):
@@ -245,7 +245,7 @@ def main(hparams, experiment):
     )
 
     iter_meter = IterMeter()
-    last_loss = 1e6
+    last_cer = 2.0
     for epoch in range(1, hparams["epochs"] + 1):
         train(
             hparams["batch_size"],
@@ -259,7 +259,7 @@ def main(hparams, experiment):
             hparams["epochs"],
             experiment,
         )
-        last_loss = test(
+        last_cer = test(
             hparams["batch_size"],
             model,
             test_loader,
@@ -267,7 +267,7 @@ def main(hparams, experiment):
             epoch,
             iter_meter,
             experiment,
-            last_loss,
+            last_cer,
         )
 
 
