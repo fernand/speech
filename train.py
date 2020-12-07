@@ -86,7 +86,7 @@ def train(
             scheduler.step()
             iter_meter.step()
             if batch_idx % 100 == 0:
-                time_for_100_batches = round(time.time() - batch_start)
+                time_for_100_batches = round(time.time() - batch_start, 1)
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                         epoch,
@@ -286,6 +286,7 @@ if __name__ == "__main__":
         "batch_size": 32 * multiplier,
         "epochs": 30,
         "learning_rate": 3e-4,
+        "epochs": 60,
         "n_cnn_layers": 3,
         "n_rnn_layers": 10,
         "rnn_dim": 512,
