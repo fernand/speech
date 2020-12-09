@@ -168,7 +168,7 @@ class CombinedTVLibriSpeech(SortedDataset):
     def __init__(self, librispeech_dataset_path, tv_dataset_paths, batch_size):
         super().__init__(batch_size)
         assert librispeech_dataset_path.endswith(".pkl")
-        tuples = get_librispeech_paths(librispeech_dataset_path)
+        tuples = get_librispeech_paths(librispeech_dataset_path)[:-2000]
         for dataset_path in tv_dataset_paths:
             with open(dataset_path, "rb") as f:
                 tuples.extend(
@@ -193,7 +193,7 @@ class CombinedLibriSpeechCommonVoice(SortedDataset):
         super().__init__(batch_size)
         assert librispeech_dataset_path.endswith(".pkl")
         assert commonvoice_dataset_path.endswith(".pkl")
-        tuples = get_librispeech_paths(librispeech_dataset_path)
+        tuples = get_librispeech_paths(librispeech_dataset_path)[:-1000]
         tuples.extend(get_common_voice_paths(commonvoice_dataset_path))
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]

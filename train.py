@@ -241,7 +241,7 @@ def main(hparams, experiment):
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
     scheduler = get_linear_schedule_with_warmup(
-        optimizer, 7000, hparams["epochs"] * len(train_loader)
+        optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
     )
 
     iter_meter = IterMeter()
@@ -273,6 +273,7 @@ def main(hparams, experiment):
 
 if __name__ == "__main__":
     dataset = sys.argv[1]
+    multiplier = int(sys.argv[2])
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
@@ -281,7 +282,8 @@ if __name__ == "__main__":
     )
     hparams = {
         "dataset": dataset,
-        "batch_size": 32,
+        "multiplier": multiplier,
+        "batch_size": 32 * multiplier,
         "epochs": 30,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
