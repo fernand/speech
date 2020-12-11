@@ -112,7 +112,7 @@ class SRModel(nn.Module):
             layer_norm=True,
             bidirectional=True,
         )
-        lstm_dim = 2048
+        lstm_dim = 1024
         self.lstm = torch.nn.LSTM(
             input_size=rnn_dim,
             hidden_size=lstm_dim,
