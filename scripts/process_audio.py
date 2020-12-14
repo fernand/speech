@@ -1,5 +1,4 @@
 import itertools
-import json
 import multiprocessing
 import os
 import pickle
@@ -184,21 +183,6 @@ def opusenc(audio_f):
     p = subprocess.Popen(opus)
     p.communicate()
     os.remove(audio_f)
-
-
-# prodigy audio.transcribe uterances audio/uterances.jsonl --loader jsonl
-# python -m http.server 8081 --bind 192.168.1.21
-# Use Edge with the Chrome CORS bypass extension.
-def to_jsonl(uterances, output_f):
-    if os.path.exists(output_f):
-        os.remove(output_f)
-    random.shuffle(uterances)
-    with open(output_f, "w") as f:
-        for uterance in uterances:
-            file = os.path.basename(uterance[0])
-            url = "http://192.168.1.21:8081/" + file
-            js = {"audio": url, "transcript": uterance[1]}
-            f.write(json.dumps(js) + "\n")
 
 
 def process_file(audio_f, output_dir):
