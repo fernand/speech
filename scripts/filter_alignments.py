@@ -70,14 +70,14 @@ def collate_fn(collated):
     return spectrograms, utterances, manifests
 
 
-def get_loader(manifest_path, batch_size=512):
+def get_loader(manifest_path, batch_size=256):
     dataset = MetaTV(manifest_path, batch_size)
     loader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=None,
         collate_fn=collate_fn,
         shuffle=True,
-        num_workers=12,
+        num_workers=6,
         pin_memory=True,
     )
     return loader
