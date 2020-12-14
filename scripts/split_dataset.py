@@ -43,6 +43,11 @@ def split_with_cer(dataset_dir, manifest, max_cer):
 if __name__ == "__main__":
     dataset_dir = sys.argv[1]
     max_cer = float(sys.argv[2])
-    with open(os.path.join(dataset_dir, "manifest.pkl"), "rb") as f:
+    filtered = bool(sys.argv[3])
+    if filtered:
+        manifest_path = os.path.join(dataset_dir, "filtered_manifest.pkl")
+    else:
+        manifest_path = os.path.join(dataset_dir, "manifest.pkl")
+    with open(manifest_path, "rb") as f:
         manifest = pickle.load(f)
     split_with_cer(dataset_dir, manifest, max_cer)

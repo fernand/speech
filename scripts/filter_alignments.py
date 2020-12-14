@@ -117,7 +117,6 @@ if __name__ == "__main__":
         "datasets/third",
         "datasets/fourth",
     ]
-    datasets = ["datasets/first"]
     model_path = "good_models/sru-lstm1024-b96-1234-libri-0.1cer/model_904a062168c94cc5b3511516a0e34739.pth"
     for dataset in datasets:
         print("Processing dataset", dataset.split("/")[-1])

@@ -101,11 +101,12 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, stride=1, kernel_s=3) for _ in range(n_cnn_layers)]
         )
         n_features = 32 * n_feats // 2
-        # self.conv_block = SingleConvBlock(n_features, rnn_dim)
-        # self.feature_ln = apex.normalization.FusedLayerNorm(rnn_dim)
-        self.feature_ln = apex.normalization.FusedLayerNorm(n_features)
+        self.conv_block = SingleConvBlock(n_features, rnn_dim)
+        self.feature_ln = apex.normalization.FusedLayerNorm(rnn_dim)
+        # self.feature_ln = apex.normalization.FusedLayerNorm(n_features)
         self.birnn_layers = sru.SRU(
-            input_size=n_features,
+            input_size=rnn_dim,
+            # input_size=n_features,
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
             dropout=dropout,
@@ -132,7 +133,7 @@ class SRModel(nn.Module):
         x = self.resnet_layers(x)
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
-        # x = self.conv_block(x)
+        x = self.conv_block(x)
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
         x = self.feature_ln(x)
         x, _ = self.birnn_layers(x)  # T, B, C*2

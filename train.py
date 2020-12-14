@@ -177,10 +177,10 @@ def main(hparams, experiment):
         )
     elif hparams["dataset"].startswith("tv-1234"):
         tv_train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.1.pkl",
-            "datasets/second/sorted_train_cer_0.1.pkl",
-            "datasets/third/sorted_train_cer_0.1.pkl",
-            "datasets/fourth/sorted_train_cer_0.1.pkl",
+            "datasets/first/sorted_train_cer_0.3.pkl",
+            "datasets/second/sorted_train_cer_0.3.pkl",
+            "datasets/third/sorted_train_cer_0.3.pkl",
+            "datasets/fourth/sorted_train_cer_0.3.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
