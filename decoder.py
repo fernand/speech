@@ -26,7 +26,7 @@ def cer(s1, s2):
 
 
 def greedy_decoder(output, labels, label_lengths, blank_label=0):
-    arg_maxes = torch.argmax(output, dim=2)
+    arg_maxes = torch.argmax(output, dim=2).numpy()
     decodes = []
     targets = []
     for i, args in enumerate(arg_maxes):
@@ -37,21 +37,21 @@ def greedy_decoder(output, labels, label_lengths, blank_label=0):
                 # Collapse repeats.
                 if j != 0 and index == args[j - 1]:
                     continue
-                decode.append(index.item())
+                decode.append(index)
         decodes.append(text.int_to_text(decode))
     return decodes, targets
 
 
 def greedy_decode(output, blank_label=0):
-    arg_maxes = torch.argmax(output, dim=2)
+    arg_maxes = torch.argmax(output, dim=2).numpy()
     decodes = []
-    for i, args in enumerate(arg_maxes):
+    for args in arg_maxes:
         decode = []
         for j, index in enumerate(args):
             if index != blank_label:
                 # Collapse repeats.
                 if j != 0 and index == args[j - 1]:
                     continue
-                decode.append(index.item())
+                decode.append(index)
         decodes.append(text.int_to_text(decode))
     return decodes
