@@ -2,7 +2,7 @@
 # eSpeak, ffmpeg static build
 # conda install pytorch torchaudio torchtext cudatoolkit=11.0 -c pytorch
 # apex, ctcdecode, silero, kenlm
-aeneas
+# aeneas
 comet_ml
 joblib
 omegaconf

@@ -86,7 +86,7 @@ def train(
             scheduler.step()
             iter_meter.step()
             if batch_idx % 100 == 0:
-                time_for_100_batches = round(time.time() - batch_start)
+                time_for_100_batches = round(time.time() - batch_start, 1)
                 print(
                     "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                         epoch,
@@ -177,10 +177,10 @@ def main(hparams, experiment):
         )
     elif hparams["dataset"].startswith("tv-1234"):
         tv_train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.1.pkl",
-            "datasets/second/sorted_train_cer_0.1.pkl",
-            "datasets/third/sorted_train_cer_0.1.pkl",
-            "datasets/fourth/sorted_train_cer_0.1.pkl",
+            "datasets/first/sorted_train_cer_0.3.pkl",
+            "datasets/second/sorted_train_cer_0.3.pkl",
+            "datasets/third/sorted_train_cer_0.3.pkl",
+            "datasets/fourth/sorted_train_cer_0.3.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
@@ -284,7 +284,7 @@ if __name__ == "__main__":
         "dataset": dataset,
         "multiplier": multiplier,
         "batch_size": 32 * multiplier,
-        "epochs": 30,
+        "epochs": 45,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
         "n_rnn_layers": 10,
