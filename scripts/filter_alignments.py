@@ -77,7 +77,7 @@ def get_loader(manifest_path, batch_size=256):
         batch_size=None,
         collate_fn=collate_fn,
         shuffle=True,
-        num_workers=6,
+        num_workers=3,
         pin_memory=True,
     )
     return loader
@@ -86,7 +86,7 @@ def get_loader(manifest_path, batch_size=256):
 def filter_files(model, loader):
     filtered_manifest = []
     with torch.no_grad():
-        for _, batch in enumerate(tqdm.tqdm(loader)):
+        for batch in tqdm.tqdm(loader):
             spectrograms, utterances, manifests = batch
             current_batch_size = len(utterances)
             spectrograms = spectrograms.cuda()
@@ -98,9 +98,7 @@ def filter_files(model, loader):
                 pred_w = preds[j].split(" ")
                 target_w = utterances[j].split(" ")
                 m = manifests[j]
-                if m[1] <= 0.1:
-                    filtered_manifest.append(m)
-                elif (
+                if (
                     len(target_w) >= 2
                     and len(pred_w) >= 2
                     and pred_w[0] == target_w[0]
