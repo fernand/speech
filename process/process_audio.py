@@ -16,6 +16,8 @@ import scipy.io.wavfile
 import sox
 import numpy as np
 
+import int_to_words
+
 
 def list_input_audio_files(input_dirs):
     files = []
@@ -43,8 +45,39 @@ CONTINUATION_REGEXP_1 = re.compile(r">>")
 CONTINUATION_REGEXP_2 = re.compile(r">>>")
 TAG_REGEXP = re.compile(r"<.*?>")
 NAME_REGEXP = re.compile(r"([A-z]+\:)|(\([A-z]+\))")
+NUMBER_REGEXP = re.compile(r"\d+")
+ACCENT_REGEXP = re.compile(r"[éèêëà]")
+DASH_REGEXP = re.compile(r"-")
 NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
 MULTI_SPACE_REGEXP = re.compile(r"\s+")
+
+
+def replace_num(matchobj):
+    return " " + int_to_words.name_number(int(matchobj.group(0))) + " "
+
+
+ACCENT_DICT = {"é": "e", "è": "e", "ê": "e", "ë": "e", "à": "a"}
+
+# Ignore the transcript if those symbols are included.
+BLACKLIST = set(["[", "$", "¢", ".com"])
+
+
+def remove_accent(matchobj):
+    return ACCENT_DICT[matchobj.group(0)]
+
+
+def clean_transcript(transcript):
+    transcript = transcript.lower()
+    transcript = re.sub(CONTINUATION_REGEXP_1, "", transcript)
+    transcript = re.sub(CONTINUATION_REGEXP_2, "", transcript)
+    transcript = re.sub(TAG_REGEXP, "", transcript)
+    transcript = re.sub(NAME_REGEXP, "", transcript)
+    transcript = re.sub(NUMBER_REGEXP, replace_num, transcript)
+    transcript = re.sub(ACCENT_REGEXP, remove_accent, transcript)
+    transcript = re.sub(DASH_REGEXP, " ", transcript)
+    transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, "", transcript)
+    transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
+    return transcript
 
 
 def parse_srt(srt_f):
@@ -63,25 +96,19 @@ def parse_srt(srt_f):
         current_lines = chunk[2:]
         if len(current_lines) == 0:
             continue
+
         # For transcripts which overlap on multiple positions,
         # remove the second transcript occurence.
-        if len(prev_lines) > 0 and prev_lines[-1] == current_lines[0]:
-            if len(current_lines) == 1:
-                prev_lines = current_lines
-                continue
-            transcript = " ".join([c.strip() for c in chunk[3:]])
-        else:
-            transcript = " ".join([c.strip() for c in chunk[2:]])
+        filtered_lines = []
+        for line in current_lines:
+            if line not in prev_lines:
+                filtered_lines.append(line)
         prev_lines = current_lines
-        if "[" in transcript:
+
+        transcript = " ".join([l.strip() for l in filtered_lines])
+        if any([c in transcript for c in BLACKLIST]):
             continue
-        transcript = transcript.lower()
-        transcript = re.sub(CONTINUATION_REGEXP_1, "", transcript)
-        transcript = re.sub(CONTINUATION_REGEXP_2, "", transcript)
-        transcript = re.sub(TAG_REGEXP, "", transcript)
-        transcript = re.sub(NAME_REGEXP, "", transcript)
-        transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, "", transcript)
-        transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
+        transcript = clean_transcript(transcript)
         if len(transcript) > 0:
             transcripts.append((start, end, transcript))
     f.close()
@@ -210,15 +237,15 @@ def process_file(audio_f, output_dir):
 
 DATASETS = {
     "first": {
-        "input_dirs": ["/tv/first", "/tv/first/extra", "/tv/first/round1"],
+        "input_dirs": ["/hd1/first", "/hd1/first/extra", "/hd1/first/round1"],
         "output_dir": "/hd1/clean",
     },
     "second": {
-        "input_dirs": ["/tv/second", "/tv/second/first", "/tv/second/second"],
+        "input_dirs": ["/hd1/second", "/hd1/second/first", "/hd1/second/second"],
         "output_dir": "/hd1/clean2",
     },
-    "third": {"input_dirs": ["/tv/third"], "output_dir": "/hd1/clean3"},
-    "fourth": {"input_dirs": ["/tv/fourth"], "output_dir": "/hd1/clean4"},
+    "third": {"input_dirs": ["/hd1/third"], "output_dir": "/hd1/clean3"},
+    "fourth": {"input_dirs": ["/hd1/fourth"], "output_dir": "/hd1/clean4"},
 }
 
 if __name__ == "__main__":
@@ -232,7 +259,7 @@ if __name__ == "__main__":
     num_chunks = 20
     chunks = np.array_split(audio_files, num_chunks)
     for chunk_i, chunk in enumerate(chunks):
-        p = multiprocessing.Pool(6)
+        p = multiprocessing.Pool(32)
         print(f"Processing chunk {chunk_i} out of {num_chunks - 1}")
         start = time.time()
         p.starmap(process_file, [(audio_f, output_dir) for audio_f in chunks[chunk_i]])

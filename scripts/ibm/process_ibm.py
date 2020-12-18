@@ -72,7 +72,7 @@ def parse_sync(line):
 
 if __name__ == "__main__":
     audio_paths = []
-    with open("scripts/ibm_test.txt") as f:
+    with open("scripts/ibm/ibm_test.txt") as f:
         for l in f:
             audio_paths.append(l.strip())
     for audio_path in audio_paths:
