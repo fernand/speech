@@ -93,6 +93,7 @@ class SRModel(nn.Module):
         rnn_dim,
         n_vocab,
         n_feats,
+        lstm_dim=1024,
         dropout=0.1,
     ):
         super().__init__()
@@ -103,8 +104,10 @@ class SRModel(nn.Module):
         n_features = 32 * n_feats // 2
         self.conv_block = SingleConvBlock(n_features, rnn_dim)
         self.feature_ln = apex.normalization.FusedLayerNorm(rnn_dim)
+        # self.feature_ln = apex.normalization.FusedLayerNorm(n_features)
         self.birnn_layers = sru.SRU(
             input_size=rnn_dim,
+            # input_size=n_features,
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
             dropout=dropout,
@@ -112,9 +115,17 @@ class SRModel(nn.Module):
             layer_norm=True,
             bidirectional=True,
         )
+        self.lstm = torch.nn.LSTM(
+            input_size=rnn_dim,
+            hidden_size=lstm_dim,
+            num_layers=1,
+            batch_first=False,
+            dropout=0.0,
+            bidirectional=True,
+        )
         self.classifier = nn.Sequential(
-            apex.normalization.FusedLayerNorm(rnn_dim),
-            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
+            apex.normalization.FusedLayerNorm(lstm_dim),
+            nn.Linear(lstm_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):
@@ -126,6 +137,10 @@ class SRModel(nn.Module):
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
         x = self.feature_ln(x)
         x, _ = self.birnn_layers(x)  # T, B, C*2
+        x = (
+            x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
+        )  # T,B,C*2 -> T,B,C by sum
+        x, _ = self.lstm(x)
         x = (
             x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
         )  # T,B,C*2 -> T,B,C by sum
