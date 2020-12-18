@@ -49,25 +49,34 @@ class MetaTV(data.SortedDataset):
     def get_clip(self, i):
         m = self.paths[i]
         audio_path = m[0].replace("/data", "/hd1")
-        text_path = audio_path.strip(".wav") + ".txt"
+        transcript_path = audio_path.strip(".wav") + ".txt"
+
         waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
-        with open(text_path) as f:
-            utterance = f.read().strip()
-        return (waveform, utterance, m)
+        duration = waveform.size(1) / 16000
+        if duration > 6.0:
+            waveform = torch.zeros(1, 16000, dtype=torch.float32)
+
+        transcript = None
+        if os.path.exists(transcript_path):
+            with open(transcript_path) as f:
+                transcript = f.read().strip()
+                if len(transcript) == 0:
+                    transcript = None
+        return (waveform, transcript, m)
 
 
 def collate_fn(collated):
     spectrograms = []
-    utterances = []
+    transcripts = []
     manifests = []
-    for (waveform, utterance, manifest) in collated:
+    for (waveform, transcript, manifest) in collated:
         spec = data.spectrogram_transform(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
-        utterances.append(utterance)
+        transcripts.append(transcript)
         manifests.append(manifest)
     spectrograms = torch.nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
     spectrograms = spectrograms.unsqueeze(1).transpose(2, 3)
-    return spectrograms, utterances, manifests
+    return spectrograms, transcripts, manifests
 
 
 def get_loader(manifest_path, batch_size=256):
@@ -87,16 +96,18 @@ def filter_files(model, loader):
     filtered_manifest = []
     with torch.no_grad():
         for batch in tqdm.tqdm(loader):
-            spectrograms, utterances, manifests = batch
-            current_batch_size = len(utterances)
+            spectrograms, transcripts, manifests = batch
+            current_batch_size = len(transcripts)
             spectrograms = spectrograms.cuda()
             output = model(spectrograms)  # B, T, n_vocab+1
             output = torch.nn.functional.log_softmax(output, dim=2).cpu()
 
             preds = decoder.greedy_decode(output)
             for j in range(current_batch_size):
+                if transcripts[j] is None:
+                    continue
                 pred_w = preds[j].split(" ")
-                target_w = utterances[j].split(" ")
+                target_w = transcripts[j].split(" ")
                 m = manifests[j]
                 if (
                     len(target_w) >= 2
