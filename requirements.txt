@@ -5,7 +5,6 @@
 aeneas
 comet_ml
 joblib
-omegaconf
 python-Levenshtein
 scipy
 sox
