@@ -4,6 +4,7 @@ import os
 import pickle
 import re
 import random
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -237,21 +238,25 @@ def process_file(audio_f, output_dir):
 
 DATASETS = {
     "first": {
-        "input_dirs": ["/hd1/first", "/hd1/first/extra", "/hd1/first/round1"],
+        "input_dirs": ["/tv/first", "/tv/first/extra", "/tv/first/round1"],
         "output_dir": "/hd1/clean",
     },
     "second": {
-        "input_dirs": ["/hd1/second", "/hd1/second/first", "/hd1/second/second"],
+        "input_dirs": ["/tv/second", "/tv/second/first", "/tv/second/second"],
         "output_dir": "/hd1/clean2",
     },
-    "third": {"input_dirs": ["/hd1/third"], "output_dir": "/hd1/clean3"},
-    "fourth": {"input_dirs": ["/hd1/fourth"], "output_dir": "/hd1/clean4"},
+    "third": {"input_dirs": ["/tv/third"], "output_dir": "/tv/clean3"},
+    "fourth": {"input_dirs": ["/tv/fourth"], "output_dir": "/tv/clean4"},
+    "fifth": {"input_dirs": ["/tv/fifth"], "output_dir": "/hd1/clean5"},
 }
 
 if __name__ == "__main__":
     dataset_name = sys.argv[1]
     input_dirs = DATASETS[dataset_name]["input_dirs"]
     output_dir = DATASETS[dataset_name]["output_dir"]
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.mkdir(output_dir)
     audio_files = list_input_audio_files(input_dirs)
     random.shuffle(audio_files)
     print(f"{len(audio_files)} files to process")
