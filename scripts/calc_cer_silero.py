@@ -10,9 +10,9 @@ import tqdm
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 from decoder import cer, wer
-from silero_utils import prepare_model_input, init_jit_model, wav_to_text
+from silero_utils import prepare_model_input, init_jit_model
 
-torchaudio.set_audio_backend("sox_id")
+torchaudio.set_audio_backend("sox_io")
 
 
 class WavDataset(torch.utils.data.Dataset):
@@ -60,10 +60,10 @@ if __name__ == "__main__":
     os.mkdir(output_dir)
     audio_files = [f for f in os.listdir(input_dir) if f.endswith(".wav")]
 
-    device = torch.device(f"cuda:1")
+    device = torch.device(f"cuda:0")
     model, decoder = init_jit_model(device)
     dataset = WavDataset(audio_files, input_dir)
-    batch_size = 32
+    batch_size = 32 * 6
     dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=batch_size,

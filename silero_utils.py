@@ -52,7 +52,7 @@ class Decoder:
     def process(self, probs, wav_len, word_align):
         assert len(self.labels) == probs.shape[1]
         for_string = []
-        argm = torch.argmax(probs, axis=1)
+        argm = torch.argmax(probs, axis=1).numpy()
         align_list = [[]]
         for j, i in enumerate(argm):
             if i == self.labels.index("2"):
@@ -113,11 +113,44 @@ class Decoder:
         return self.process(probs, wav_len, word_align)
 
 
-def init_jit_model(device: torch.device = torch.device("cpu")):
+class FastDecoder:
+    def __init__(self, labels: List[str]):
+        self.labels = labels
+        self.blank_idx = self.labels.index("_")
+        self.space_idx = self.labels.index(" ")
+        self.two_index = self.labels.index("2")
+
+    def __call__(self, probs: torch.Tensor):
+        for_string = []
+        argm = torch.argmax(probs, axis=1).numpy()
+        for j, i in enumerate(argm):
+            if i == self.two_index:
+                try:
+                    prev = for_string[-1]
+                    for_string.append("$")
+                    for_string.append(prev)
+                    continue
+                except:
+                    for_string.append(" ")
+                    warnings.warn(
+                        'Token "2" detected a the beginning of sentence, omitting'
+                    )
+                    continue
+            if i != self.blank_idx:
+                for_string.append(self.labels[i])
+
+        string = "".join([x[0] for x in groupby(for_string)]).replace("$", "").strip()
+        return string
+
+
+def init_jit_model(device: torch.device = torch.device("cpu"), fast_decoder=True):
     torch.set_grad_enabled(False)
     model = torch.jit.load("silero_en_v2_jit.model", map_location=device)
     model.eval()
-    return model, Decoder(model.labels)
+    if fast_decoder:
+        return model, FastDecoder(model.labels)
+    else:
+        return model, Decoder(model.labels)
 
 
 def wav_to_text(f, model, decoder, device):
