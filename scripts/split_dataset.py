@@ -43,7 +43,7 @@ def split_with_cer(dataset_dir, manifest, max_cer):
 if __name__ == "__main__":
     dataset_dir = sys.argv[1]
     max_cer = float(sys.argv[2])
-    filtered = bool(sys.argv[3])
+    filtered = eval(sys.argv[3])
     if filtered:
         manifest_path = os.path.join(dataset_dir, "filtered_manifest.pkl")
     else:
