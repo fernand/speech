@@ -91,6 +91,8 @@ def parse_srt(srt_f):
     prev_lines = []
     for i, chunk in enumerate(chunks):
         start_end = chunk[1].strip().split(" --> ")
+        if len(start_end) != 2:
+            continue
         start, end = map(time_to_seconds, start_end)
         if start is None or end is None:
             continue
@@ -248,6 +250,7 @@ DATASETS = {
     "third": {"input_dirs": ["/tv/third"], "output_dir": "/hd1/clean3"},
     "fourth": {"input_dirs": ["/tv/fourth"], "output_dir": "/hd1/clean4"},
     "fifth": {"input_dirs": ["/tv/fifth"], "output_dir": "/hd1/clean5"},
+    "sixth": {"input_dirs": ["/tv/sixth"], "output_dir": "/hd1/clean6"},
 }
 
 if __name__ == "__main__":
