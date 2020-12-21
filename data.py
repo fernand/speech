@@ -110,8 +110,8 @@ class IBMDataset(torch.utils.data.Dataset):
     def __init__(self):
         super().__init__()
         audio_paths = [
-            os.path.join("/data/ibm", f)
-            for f in os.listdir("/data/ibm")
+            os.path.join("/hd1/ibm", f)
+            for f in os.listdir("/hd1/ibm")
             if f.endswith("wav")
         ]
         self.paths = audio_paths
