@@ -3,7 +3,7 @@ import pickle
 import random
 import sys
 
-TARGET_EVAL_DURATION = 10.0 * 3600
+TARGET_EVAL_DURATION = 2.0 * 3600
 
 
 def split_with_cer(dataset_dir, manifest, max_cer):

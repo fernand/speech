@@ -102,50 +102,69 @@ def train(
     experiment.log_metric("epoch_time", epoch_time)
 
 
-def test(
-    batch_size, model, test_loader, criterion, epoch, iter_meter, experiment, last_cer
+def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
+    eval_loss = 0
+    eval_cer, eval_wer = [], []
+    for I, batch in enumerate(loader):
+        spectrograms, labels, label_lengths = batch
+        current_batch_size = labels.size(0)
+        spectrograms = spectrograms.cuda()
+
+        output = model(spectrograms)  # B, T, n_vocab+1
+        output = F.log_softmax(output, dim=2)
+        output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
+
+        input_lengths = torch.full(
+            (current_batch_size,), output.size(0), dtype=torch.int32
+        ).cuda()
+        label_lengths = label_lengths.cuda()
+        labels = labels.cuda()
+        loss = criterion(output, labels, input_lengths, label_lengths)
+        eval_loss += loss.item() / len(loader)
+
+        output = output.cpu()
+        labels = labels.cpu()
+        label_lengths = label_lengths.cpu()
+        decoded_preds, decoded_targets = decoder.greedy_decoder(
+            output.transpose(0, 1), labels, label_lengths
+        )
+        for j in range(len(decoded_preds)):
+            eval_cer.append(decoder.cer(decoded_targets[j], decoded_preds[j]))
+            eval_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
+    avg_cer = sum(eval_cer) / len(eval_cer)
+    avg_wer = sum(eval_wer) / len(eval_wer)
+    experiment.log_metric(f"{name}_loss", eval_loss, step=iter_meter.get())
+    experiment.log_metric(f"{name}_cer", avg_cer, step=iter_meter.get())
+    experiment.log_metric(f"{name}_wer", avg_wer, step=iter_meter.get())
+    print(
+        "{}: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
+            name, eval_loss, avg_cer, avg_wer
+        )
+    )
+    return avg_cer
+
+
+def eval(
+    batch_size,
+    model,
+    eval_loader,
+    ibm_loader,
+    criterion,
+    epoch,
+    iter_meter,
+    experiment,
+    last_cer,
 ):
     print("\nevaluating…")
     model.eval()
-    test_loss = 0
-    test_cer, test_wer = [], []
     with experiment.test():
         with torch.no_grad():
-            for I, batch in enumerate(test_loader):
-                spectrograms, labels, label_lengths = batch
-                spectrograms = spectrograms.cuda()
-
-                output = model(spectrograms)  # B, T, n_vocab+1
-                output = F.log_softmax(output, dim=2)
-                output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
-
-                input_lengths = torch.full(
-                    (batch_size,), output.size(0), dtype=torch.int32
-                ).cuda()
-                label_lengths = label_lengths.cuda()
-                labels = labels.cuda()
-                loss = criterion(output, labels, input_lengths, label_lengths)
-                test_loss += loss.item() / len(test_loader)
-
-                output = output.cpu()
-                labels = labels.cpu()
-                label_lengths = label_lengths.cpu()
-                decoded_preds, decoded_targets = decoder.greedy_decoder(
-                    output.transpose(0, 1), labels, label_lengths
-                )
-                for j in range(len(decoded_preds)):
-                    test_cer.append(decoder.cer(decoded_targets[j], decoded_preds[j]))
-                    test_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
-    avg_cer = sum(test_cer) / len(test_cer)
-    avg_wer = sum(test_wer) / len(test_wer)
-    experiment.log_metric("test_loss", test_loss, step=iter_meter.get())
-    experiment.log_metric("cer", avg_cer, step=iter_meter.get())
-    experiment.log_metric("wer", avg_wer, step=iter_meter.get())
-    print(
-        "Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
-            test_loss, avg_cer, avg_wer
-        )
-    )
+            _ = eval_dataset(
+                experiment, model, criterion, eval_loader, "tv", iter_meter
+            )
+            avg_cer = eval_dataset(
+                experiment, model, criterion, ibm_loader, "ibm", iter_meter
+            )
     if avg_cer < last_cer:
         exp_id = experiment.url.split("/")[-1]
         torch.save(model.state_dict(), f"model_{exp_id}.pth")
@@ -158,7 +177,7 @@ def main(hparams, experiment):
     torch.backends.cudnn.benchmark = True
 
     if hparams["dataset"] == "libri":
-        test_dataset = data.SortedLibriSpeech(
+        eval_dataset = data.SortedLibriSpeech(
             "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
             hparams["batch_size"],
         )
@@ -166,7 +185,7 @@ def main(hparams, experiment):
             "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
         )
     elif hparams["dataset"] == "libri-cv":
-        test_dataset = data.SortedLibriSpeech(
+        eval_dataset = data.SortedLibriSpeech(
             "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
             hparams["batch_size"],
         )
@@ -175,17 +194,19 @@ def main(hparams, experiment):
             "datasets/commonvoice/sorted_train_commonvoice.pkl",
             hparams["batch_size"],
         )
-    elif hparams["dataset"].startswith("tv-1234"):
+    elif hparams["dataset"].startswith("tv"):
         tv_train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.3.pkl",
-            "datasets/second/sorted_train_cer_0.3.pkl",
-            "datasets/third/sorted_train_cer_0.3.pkl",
-            "datasets/fourth/sorted_train_cer_0.3.pkl",
+            "datasets/first/sorted_train_cer_0.1.pkl",
+            "datasets/second/sorted_train_cer_0.1.pkl",
+            "datasets/third/sorted_train_cer_0.1.pkl",
+            "datasets/fourth/sorted_train_cer_0.1.pkl",
+            "datasets/fifth/sorted_train_cer_0.1.pkl",
+            "datasets/sixth/sorted_train_cer_0.1.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
         ]
-        test_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"])
+        eval_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"])
         if hparams["dataset"].endswith("libri"):
             train_dataset = data.CombinedTVLibriSpeech(
                 "datasets/librispeech/sorted_train_librispeech.pkl",
@@ -206,13 +227,21 @@ def main(hparams, experiment):
         num_workers=3,
         pin_memory=True,
     )
-    test_loader = torch.utils.data.DataLoader(
-        dataset=test_dataset,
+    eval_loader = torch.utils.data.DataLoader(
+        dataset=eval_dataset,
         batch_size=None,
         # Also shuffling at the clip level in data.py
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=2,
+        num_workers=3,
+        pin_memory=True,
+    )
+    ibm_loader = torch.utils.data.DataLoader(
+        dataset=data.IBMDataset(),
+        batch_size=32 * hparams["multiplier"] * 2,
+        shuffle=False,
+        collate_fn=lambda x: data.collate_fn(x, "valid"),
+        num_workers=3,
         pin_memory=True,
     )
 
@@ -223,6 +252,7 @@ def main(hparams, experiment):
         hparams["n_vocab"],
         hparams["n_feats"],
         hparams["dropout"],
+        hparams["lstm_dim"],
     )
     # model.load_state_dict(
     #    torch.load(
@@ -259,10 +289,11 @@ def main(hparams, experiment):
             hparams["epochs"],
             experiment,
         )
-        last_cer = test(
+        last_cer = eval(
             hparams["batch_size"],
             model,
-            test_loader,
+            eval_loader,
+            ibm_loader,
             criterion,
             epoch,
             iter_meter,
@@ -289,6 +320,7 @@ if __name__ == "__main__":
         "n_cnn_layers": 3,
         "n_rnn_layers": 10,
         "rnn_dim": 512,
+        "lstm_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
