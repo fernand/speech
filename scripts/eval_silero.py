@@ -5,13 +5,13 @@ import torch
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 import data
-import silero
+import silero_utils
 from decoder import cer, wer
 
 
 def collate_fn(data):
     return (
-        silero.prepare_model_input(
+        silero_utils.prepare_model_input(
             [t[0].squeeze(0) for t in data], device=torch.device("cpu")
         ),
         [t[1] for t in data],
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     loader_batch_size = 96
 
     device = torch.device(f"cuda:0")
-    model, model_decoder = silero.load_silero_model(device)
+    model, model_decoder = silero_utils.init_jit_model(device)
 
     batch_size = None
     if dataset_type == "libri":
