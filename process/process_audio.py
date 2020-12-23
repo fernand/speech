@@ -76,7 +76,7 @@ def clean_transcript(transcript):
     transcript = re.sub(NUMBER_REGEXP, replace_num, transcript)
     transcript = re.sub(ACCENT_REGEXP, remove_accent, transcript)
     transcript = re.sub(DASH_REGEXP, " ", transcript)
-    transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, "", transcript)
+    transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, " ", transcript)
     transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
     return transcript
 
