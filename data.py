@@ -171,9 +171,7 @@ class CombinedTVLibriSpeech(SortedDataset):
         tuples = get_librispeech_paths(librispeech_dataset_path)[:-2000]
         for dataset_path in tv_dataset_paths:
             with open(dataset_path, "rb") as f:
-                tuples.extend(
-                    [(t[0].replace("/data", "/hd1"), t[1]) for t in pickle.load(f)]
-                )
+                tuples.extend(pickle.load(f))
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]
 
@@ -184,17 +182,26 @@ class CombinedTVLibriSpeech(SortedDataset):
         elif "clean" in audio_path:
             return get_tv_clip(audio_path)
         else:
-            print(audio_path, "in neither LibriSpeech or TV datasets.")
+            print(audio_path, "not in datasets")
             sys.exit(1)
 
 
-class CombinedLibriSpeechCommonVoice(SortedDataset):
-    def __init__(self, librispeech_dataset_path, commonvoice_dataset_path, batch_size):
+class CombinedTVLibriSpeechCommonVoice(SortedDataset):
+    def __init__(
+        self,
+        librispeech_dataset_path,
+        commonvoice_dataset_path,
+        tv_dataset_paths,
+        batch_size,
+    ):
         super().__init__(batch_size)
         assert librispeech_dataset_path.endswith(".pkl")
         assert commonvoice_dataset_path.endswith(".pkl")
-        tuples = get_librispeech_paths(librispeech_dataset_path)[:-1000]
+        tuples = get_librispeech_paths(librispeech_dataset_path)[:-2000]
         tuples.extend(get_common_voice_paths(commonvoice_dataset_path))
+        for dataset_path in tv_dataset_paths:
+            with open(dataset_path, "rb") as f:
+                tuples.extend(pickle.load(f))
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]
 
@@ -202,10 +209,12 @@ class CombinedLibriSpeechCommonVoice(SortedDataset):
         audio_path = self.paths[i]
         if "LibriSpeech" in audio_path:
             return get_librispeech_clip(audio_path)
+        elif "clean" in audio_path:
+            return get_tv_clip(audio_path)
         elif "cv-corpus" in audio_path:
-            return get_common_voice_clip(self.paths[i])
+            return get_common_voice_clip(audio_path)
         else:
-            print(audio_path, "in neither LibriSpeech or Common Voice datasets.")
+            print(audio_path, "not in datasets")
             sys.exit(1)
 
 

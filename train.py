@@ -176,7 +176,8 @@ def main(hparams, experiment):
     torch.manual_seed(7)
     torch.backends.cudnn.benchmark = True
 
-    if hparams["dataset"] == "libri":
+    datasets = hparams["datasets"].split("-")
+    if "libri" in datasets:
         eval_dataset = data.SortedLibriSpeech(
             "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
             hparams["batch_size"],
@@ -184,17 +185,7 @@ def main(hparams, experiment):
         train_dataset = data.SortedLibriSpeech(
             "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
         )
-    elif hparams["dataset"] == "libri-cv":
-        eval_dataset = data.SortedLibriSpeech(
-            "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
-            hparams["batch_size"],
-        )
-        train_dataset = data.CombinedLibriSpeechCommonVoice(
-            "datasets/librispeech/sorted_train_librispeech.pkl",
-            "datasets/commonvoice/sorted_train_commonvoice.pkl",
-            hparams["batch_size"],
-        )
-    elif hparams["dataset"].startswith("tv"):
+    elif "tv" in datasets:
         tv_train_dataset_paths = [
             "datasets/first/sorted_train_cer_0.1.pkl",
             "datasets/second/sorted_train_cer_0.1.pkl",
@@ -207,12 +198,20 @@ def main(hparams, experiment):
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
         ]
         eval_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"])
-        if hparams["dataset"].endswith("libri"):
-            train_dataset = data.CombinedTVLibriSpeech(
-                "datasets/librispeech/sorted_train_librispeech.pkl",
-                tv_train_dataset_paths,
-                hparams["batch_size"],
-            )
+        if "libri" in datasets:
+            if "cv" in datasets:
+                train_dataset = data.CombinedTVLibriSpeechCommonVoice(
+                    "datasets/librispeech/sorted_train_librispeech.pkl",
+                    "datasets/commonvoice/sorted_train_commonvoice.pkl",
+                    tv_train_dataset_paths,
+                    hparams["batch_size"],
+                )
+            else:
+                train_dataset = data.CombinedTVLibriSpeech(
+                    "datasets/librispeech/sorted_train_librispeech.pkl",
+                    tv_train_dataset_paths,
+                    hparams["batch_size"],
+                )
         else:
             train_dataset = data.SortedTV(tv_train_dataset_paths, hparams["batch_size"])
     else:
@@ -303,7 +302,7 @@ def main(hparams, experiment):
 
 
 if __name__ == "__main__":
-    dataset = sys.argv[1]
+    datasets = sys.argv[1]
     multiplier = int(sys.argv[2])
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
@@ -312,7 +311,7 @@ if __name__ == "__main__":
         # disabled=True,
     )
     hparams = {
-        "dataset": dataset,
+        "datasets": datasets,
         "multiplier": multiplier,
         "batch_size": 32 * multiplier,
         "epochs": 45,
