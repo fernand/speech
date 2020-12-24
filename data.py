@@ -71,7 +71,7 @@ def get_librispeech_clip(audio_path):
 
 
 def get_common_voice_clip(audio_path):
-    audio_path = audio_path.replace(".mp3", ".wav")
+    audio_path = audio_path.replace("/data", "/hd1").replace(".mp3", ".wav")
     text_path = audio_path.replace(".wav", ".txt")
     waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
     with open(text_path) as f:

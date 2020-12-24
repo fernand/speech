@@ -177,15 +177,7 @@ def main(hparams, experiment):
     torch.backends.cudnn.benchmark = True
 
     datasets = hparams["datasets"].split("-")
-    if "libri" in datasets:
-        eval_dataset = data.SortedLibriSpeech(
-            "datasets/librispeech/sorted_dev_clean_librispeech.pkl",
-            hparams["batch_size"],
-        )
-        train_dataset = data.SortedLibriSpeech(
-            "datasets/librispeech/sorted_train_librispeech.pkl", hparams["batch_size"]
-        )
-    elif "tv" in datasets:
+    if "tv" in datasets:
         tv_train_dataset_paths = [
             "datasets/first/sorted_train_cer_0.1.pkl",
             "datasets/second/sorted_train_cer_0.1.pkl",
