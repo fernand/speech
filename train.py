@@ -238,8 +238,7 @@ def main(hparams, experiment):
 
     model = net.SRModel(
         hparams["n_cnn_layers"],
-        hparams["n_sru_layers"],
-        hparams["sru_dim"],
+        hparams["lstm_input_dim"],
         hparams["n_lstm_layers"],
         hparams["lstm_dim"],
         hparams["n_vocab"],
@@ -301,7 +300,7 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        disabled=True,
+        # disabled=True,
     )
     hparams = {
         "datasets": datasets,
@@ -310,9 +309,8 @@ if __name__ == "__main__":
         "epochs": 45,
         "learning_rate": 3e-4,
         "n_cnn_layers": 3,
-        "n_sru_layers": 5,
-        "sru_dim": 512,
-        "n_lstm_layers": 2,
+        "lstm_input_dim": 512,
+        "n_lstm_layers": 3,
         "lstm_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.

@@ -1,8 +1,6 @@
-import apex
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import sru
 
 
 class ResidualBlock(nn.Module):
@@ -17,7 +15,6 @@ class ResidualBlock(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.bn2 = nn.BatchNorm2d(out_channels)
-        # See the Pytorch ResNet code or Resnet paper for those.
         nn.init.kaiming_normal_(self.conv1.weight, mode="fan_out", nonlinearity="relu")
         nn.init.kaiming_normal_(self.conv2.weight, mode="fan_out", nonlinearity="relu")
         nn.init.constant_(self.bn1.weight, 1)
@@ -86,13 +83,17 @@ class SingleConvBlock(nn.Module):
 
 
 class LSTMBlock(nn.Module):
-    def __init__(self, input_dim, lstm_dim):
+    def __init__(self, input_dim, lstm_dim, dropout=0.0):
         super().__init__()
+        if dropout > 0.0:
+            self.dropout = nn.Dropout(dropout)
         self.ln = nn.LayerNorm(input_dim)
         self.lstm = nn.LSTM(input_dim, lstm_dim, batch_first=False, bidirectional=True)
+        # self.proj = nn.Linear(lstm_dim, lstm_dim // 2)
 
     def forward(self, x):
         x = self.ln(x)
+        x = self.dropout(x)
         x, _ = self.lstm(x)
         x = (
             x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
@@ -104,13 +105,12 @@ class SRModel(nn.Module):
     def __init__(
         self,
         n_cnn_layers,
-        n_sru_layers,
-        sru_dim,
+        lstm_input_dim,
         n_lstm_layers,
         lstm_dim,
         n_vocab,
         n_feats,
-        dropout=0.1,
+        dropout,
     ):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
@@ -118,23 +118,13 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, stride=1, kernel_s=3) for _ in range(n_cnn_layers)]
         )
         n_features = 32 * n_feats // 2
-        self.conv_block = SingleConvBlock(n_features, sru_dim)
-        self.feature_ln = apex.normalization.FusedLayerNorm(sru_dim)
-        self.sru_layers = sru.SRU(
-            input_size=sru_dim,
-            hidden_size=sru_dim,
-            num_layers=n_sru_layers,
-            dropout=dropout,
-            rescale=False,
-            layer_norm=True,
-            bidirectional=True,
-        )
-        self.lstm_layers = [LSTMBlock(sru_dim, lstm_dim)]
-        for i in range(n_lstm_layers - 1):
-            self.lstm_layers.append(LSTMBlock(lstm_dim, lstm_dim))
+        self.conv_block = SingleConvBlock(n_features, lstm_input_dim)
+        self.lstm_layers = [LSTMBlock(lstm_input_dim, lstm_dim, dropout)]
+        for _ in range(n_lstm_layers - 2):
+            self.lstm_layers.append(LSTMBlock(lstm_dim, lstm_dim, dropout))
         self.lstm_layers = nn.Sequential(*self.lstm_layers)
         self.classifier = nn.Sequential(
-            apex.normalization.FusedLayerNorm(lstm_dim),
+            nn.LayerNorm(lstm_dim),
             nn.Linear(lstm_dim, n_vocab + 1, bias=False),
         )
 
@@ -145,11 +135,6 @@ class SRModel(nn.Module):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
         x = self.conv_block(x)
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
-        x = self.feature_ln(x)
-        x, _ = self.sru_layers(x)  # T, B, C*2
-        x = (
-            x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
-        )  # T,B,C*2 -> T,B,C by sum
         x = self.lstm_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
