@@ -120,7 +120,7 @@ class SRModel(nn.Module):
         n_features = 32 * n_feats // 2
         self.conv_block = SingleConvBlock(n_features, lstm_input_dim)
         self.lstm_layers = [LSTMBlock(lstm_input_dim, lstm_dim, dropout)]
-        for _ in range(n_lstm_layers - 2):
+        for _ in range(n_lstm_layers - 1):
             self.lstm_layers.append(LSTMBlock(lstm_dim, lstm_dim, dropout))
         self.lstm_layers = nn.Sequential(*self.lstm_layers)
         self.classifier = nn.Sequential(
