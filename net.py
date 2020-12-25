@@ -104,10 +104,8 @@ class SRModel(nn.Module):
         n_features = 32 * n_feats // 2
         self.conv_block = SingleConvBlock(n_features, rnn_dim)
         self.feature_ln = apex.normalization.FusedLayerNorm(rnn_dim)
-        # self.feature_ln = apex.normalization.FusedLayerNorm(n_features)
         self.birnn_layers = sru.SRU(
             input_size=rnn_dim,
-            # input_size=n_features,
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
             dropout=dropout,
