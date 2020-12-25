@@ -8,5 +8,4 @@ joblib
 python-Levenshtein
 scipy
 sox
-sru
 tqdm
