@@ -83,7 +83,7 @@ class SingleConvBlock(nn.Module):
 
 
 class LSTMBlock(nn.Module):
-    def __init__(self, input_dim, lstm_dim, dropout=0.0):
+    def __init__(self, input_dim, lstm_dim, dropout):
         super().__init__()
         if dropout > 0.0:
             self.dropout = nn.Dropout(dropout)
