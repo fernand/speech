@@ -85,15 +85,16 @@ class SingleConvBlock(nn.Module):
 class LSTMBlock(nn.Module):
     def __init__(self, input_dim, lstm_dim, dropout):
         super().__init__()
-        if dropout > 0.0:
+        self.has_dropout = dropout > 0.0
+        if self.has_dropout:
             self.dropout = nn.Dropout(dropout)
         self.ln = nn.LayerNorm(input_dim)
         self.lstm = nn.LSTM(input_dim, lstm_dim, batch_first=False, bidirectional=True)
-        # self.proj = nn.Linear(lstm_dim, lstm_dim // 2)
 
     def forward(self, x):
         x = self.ln(x)
-        x = self.dropout(x)
+        if self.has_dropout:
+            x = self.dropout(x)
         x, _ = self.lstm(x)
         x = (
             x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
