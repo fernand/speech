@@ -125,8 +125,10 @@ if __name__ == "__main__":
         "datasets/second",
         "datasets/third",
         "datasets/fourth",
+        "datasets/fifth",
+        "datasets/sixth",
     ]
-    model_path = "good_models/sru-lstm1024-b96-1234-libri-0.1cer/model_904a062168c94cc5b3511516a0e34739.pth"
+    model_path = "good_models/sru-lstm-123456-libri-0.1cer/model_cc3a8ef99e314fe88df830e5bf9c8dff.pth"
     for dataset in datasets:
         print("Processing dataset", dataset.split("/")[-1])
         manifest_path = os.path.join(dataset, "manifest.pkl")
