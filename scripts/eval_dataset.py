@@ -15,7 +15,7 @@ import decoder
 import text
 
 
-def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
+def test(dataset_type, batch_size, model, test_loader, beam_decode):
     # if beam_decode:
     #    if dataset_type == "tv" or dataset_type == "ibm":
     #        model_path = "lm/tv-1234-lm.arpa"
@@ -35,26 +35,17 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
     #    )
     print("\nevaluating...")
     model.eval()
-    test_loss = 0
     test_cer, test_wer = [], []
     bad_cers = []
     with torch.no_grad():
         for I, batch in enumerate(test_loader):
             spectrograms, labels, label_lengths = batch
             current_batch_size = labels.size(0)
-            spectrograms = spectrograms.cuda()
+            spectrograms = spectrograms.half().cuda()
 
             output = model(spectrograms)  # B, T, n_vocab+1
             output = F.log_softmax(output, dim=2)
             output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
-
-            input_lengths = torch.full(
-                (current_batch_size,), output.size(0), dtype=torch.int32
-            ).cuda()
-            label_lengths = label_lengths.cuda()
-            labels = labels.cuda()
-            loss = criterion(output, labels, input_lengths, label_lengths)
-            test_loss += loss.item() / len(test_loader)
 
             output = output.cpu().transpose(0, 1)
             labels = labels.cpu()
@@ -82,11 +73,7 @@ def test(dataset_type, batch_size, model, test_loader, criterion, beam_decode):
                 test_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
-    print(
-        "Test set: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
-            test_loss, avg_cer, avg_wer
-        )
-    )
+    print("Test set: Average CER: {:4f} Average WER: {:.4f}\n".format(avg_cer, avg_wer))
     # with open("bad_cers.pkl", "wb") as f:
     #    pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
@@ -143,7 +130,7 @@ if __name__ == "__main__":
         print("Unkown dataset", dataset_type)
         sys.exit(1)
     model.load_state_dict(torch.load(model_file))
-    criterion = torch.nn.CTCLoss(blank=0).cuda()
+    model.half()
     test_loader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=batch_size,
@@ -152,6 +139,4 @@ if __name__ == "__main__":
         num_workers=3,
         pin_memory=True,
     )
-    test(
-        dataset_type, hparams["batch_size"], model, test_loader, criterion, beam_decode
-    )
+    test(dataset_type, hparams["batch_size"], model, test_loader, beam_decode)
