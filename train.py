@@ -1,4 +1,6 @@
+import code
 import math
+import signal
 import sys
 import time
 
@@ -294,6 +296,7 @@ def main(hparams, experiment):
 
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGUSR2, lambda sig, frame: code.interact())
     datasets = sys.argv[1]
     multiplier = int(sys.argv[2])
     experiment = Experiment(
