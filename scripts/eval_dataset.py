@@ -83,13 +83,11 @@ if __name__ == "__main__":
     dataset_type = sys.argv[2]
     model_file = sys.argv[3]
     hparams = {
-        "shuffle": True,
         "batch_size": 64,
-        "epochs": 15,
-        "learning_rate": 3e-4,
         "n_cnn_layers": 3,
-        "n_rnn_layers": 10,
-        "rnn_dim": 512,
+        "lstm_input_dim": 512,
+        "n_lstm_layers": 3,
+        "lstm_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
@@ -97,8 +95,9 @@ if __name__ == "__main__":
     }
     model = net.SRModel(
         hparams["n_cnn_layers"],
-        hparams["n_rnn_layers"],
-        hparams["rnn_dim"],
+        hparams["lstm_input_dim"],
+        hparams["n_lstm_layers"],
+        hparams["lstm_dim"],
         hparams["n_vocab"],
         hparams["n_feats"],
         hparams["dropout"],
