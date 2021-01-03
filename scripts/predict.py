@@ -1,7 +1,6 @@
 import os
 import sys
 
-# import ctcdecode
 import torch
 import torchaudio
 
@@ -13,11 +12,12 @@ import net
 import decoder
 
 
-def get_model():
+def get_model(model_path):
     hparams = {
         "n_cnn_layers": 3,
-        "n_rnn_layers": 10,
-        "rnn_dim": 512,
+        "lstm_input_dim": 512,
+        "n_lstm_layers": 3,
+        "lstm_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
@@ -25,14 +25,14 @@ def get_model():
     }
     model = net.SRModel(
         hparams["n_cnn_layers"],
-        hparams["n_rnn_layers"],
-        hparams["rnn_dim"],
+        hparams["lstm_input_dim"],
+        hparams["n_lstm_layers"],
+        hparams["lstm_dim"],
         hparams["n_vocab"],
         hparams["n_feats"],
         hparams["dropout"],
     )
-    model_file = "good_models/sru-lstm-123456-libri-0.1cer/model_cc3a8ef99e314fe88df830e5bf9c8dff.pth"
-    model.load_state_dict(torch.load(model_file, map_location=torch.device("cpu")))
+    model.load_state_dict(torch.load(model_path, map_location=torch.device("cpu")))
     model.eval()
     return model
 
