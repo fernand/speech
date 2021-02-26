@@ -120,6 +120,7 @@ class SRModel(nn.Module):
         )
         n_features = 32 * n_feats // 2
         self.conv_block = SingleConvBlock(n_features, lstm_input_dim)
+        # self.proj = nn.Linear(n_features, lstm_input_dim)
         self.lstm_layers = [LSTMBlock(lstm_input_dim, lstm_dim, dropout)]
         for _ in range(n_lstm_layers - 1):
             self.lstm_layers.append(LSTMBlock(lstm_dim, lstm_dim, dropout))
@@ -136,6 +137,7 @@ class SRModel(nn.Module):
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
         x = self.conv_block(x)
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
+        # x = self.proj(x)
         x = self.lstm_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)

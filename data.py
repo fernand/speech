@@ -4,6 +4,7 @@ import pickle
 import random
 import sys
 
+import soundfile
 import torch
 import torchaudio
 import torch.nn as nn
@@ -122,6 +123,7 @@ class IBMDataset(torch.utils.data.Dataset):
     def __getitem__(self, i):
         audio_path = self.paths[i]
         waveform, _ = torchaudio.load(audio_path, normalize=True)
+        # waveform, _ = soundfile.read(audio_path)
         with open(audio_path.replace(".wav", ".txt")) as f:
             utterance = f.read().strip()
         return (waveform, utterance)

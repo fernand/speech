@@ -181,12 +181,12 @@ def main(hparams, experiment):
     datasets = hparams["datasets"].split("-")
     if "tv" in datasets:
         tv_train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.2.pkl",
-            "datasets/second/sorted_train_cer_0.2.pkl",
-            "datasets/third/sorted_train_cer_0.2.pkl",
-            "datasets/fourth/sorted_train_cer_0.2.pkl",
-            "datasets/fifth/sorted_train_cer_0.2.pkl",
-            "datasets/sixth/sorted_train_cer_0.2.pkl",
+            "datasets/first/sorted_train_cer_0.1.pkl",
+            "datasets/second/sorted_train_cer_0.1.pkl",
+            "datasets/third/sorted_train_cer_0.1.pkl",
+            "datasets/fourth/sorted_train_cer_0.1.pkl",
+            "datasets/fifth/sorted_train_cer_0.1.pkl",
+            "datasets/sixth/sorted_train_cer_0.1.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
