@@ -31,14 +31,13 @@ class SRModel(torch.nn.Module):
         self.first_layer = sru.SRU(
             input_size=n_feats,
             hidden_size=rnn_dim,
-            num_layers=1,
-            dropout=0.0,
+            num_layers=8,
+            dropout=dropout,
             rescale=False,
             layer_norm=True,
             bidirectional=False,
             amp_recurrence_fp16=True,
         )
-        self.avg_pool = torch.nn.AvgPool1d(2)
         self.lstm_layers = [LSTMBlock(rnn_dim, rnn_dim, dropout)]
         for _ in range(n_rnn_layers - 1):
             self.lstm_layers.append(LSTMBlock(rnn_dim, rnn_dim, dropout))
@@ -51,9 +50,6 @@ class SRModel(torch.nn.Module):
     def forward(self, x): # B, T, C
         x = x.transpose(0, 1).contiguous() # T, B, C
         x, _ = self.first_layer(x) 
-        x = x.permute(1, 2, 0) # B, C, T
-        x = self.avg_pool(x)
-        x = x.permute(2, 0, 1).contiguous() # T, B, C
         x = self.lstm_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)

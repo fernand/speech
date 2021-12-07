@@ -308,10 +308,10 @@ if __name__ == "__main__":
     hparams = {
         "datasets": datasets,
         "multiplier": multiplier,
-        "batch_size": 32 * multiplier,
+        "batch_size": 16 * multiplier,
         "epochs": 45,
         "learning_rate": 3e-4,
-        "n_rnn_layers": 3,
+        "n_rnn_layers": 1,
         "rnn_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.
