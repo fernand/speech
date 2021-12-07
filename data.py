@@ -19,8 +19,8 @@ spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 
 train_audio_transforms = nn.Sequential(
     spectrogram_transform,
-    torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
-    torchaudio.transforms.TimeMasking(time_mask_param=35),
+    #torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
+    #torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 COMMON_VOICE_BAD_FILES = set(
@@ -233,7 +233,6 @@ def collate_fn(data, data_type="train"):
         label_lengths.append(len(label))
 
     spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
-    spectrograms = spectrograms.unsqueeze(1).transpose(2, 3)
     labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
 
     return spectrograms, labels, torch.IntTensor(label_lengths)

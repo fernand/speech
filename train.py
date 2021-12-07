@@ -3,7 +3,6 @@ import sys
 import time
 
 from comet_ml import Experiment
-import apex
 import torch
 import torch.nn.functional as F
 
@@ -46,6 +45,7 @@ def train(
     model,
     train_loader,
     criterion,
+    scaler,
     optimizer,
     scheduler,
     epoch,
@@ -64,25 +64,27 @@ def train(
 
             optimizer.zero_grad()
 
-            output = model(spectrograms)  # B, T, n_vocab+1
-            output = F.log_softmax(output, dim=2)
-            output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
+            with torch.cuda.amp.autocast():
+                output = model(spectrograms)  # B, T, n_vocab+1
+                output = F.log_softmax(output, dim=2)
+                output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
 
-            input_lengths = torch.full(
-                (batch_size,), output.size(0), dtype=torch.int32
-            ).cuda()
-            label_lengths = label_lengths.cuda()
-            labels = labels.cuda()
-            loss = criterion(output, labels, input_lengths, label_lengths)
-            with apex.amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+                input_lengths = torch.full(
+                    (batch_size,), output.size(0), dtype=torch.int32
+                ).cuda()
+                label_lengths = label_lengths.cuda()
+                labels = labels.cuda()
+                loss = criterion(output, labels, input_lengths, label_lengths)
+
+            scaler.scale(loss).backward()
 
             experiment.log_metric("loss", loss.item(), step=iter_meter.get())
             experiment.log_metric(
                 "learning_rate", scheduler.get_lr(), step=iter_meter.get()
             )
 
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             scheduler.step()
             iter_meter.step()
             if batch_idx % 100 == 0:
@@ -183,8 +185,8 @@ def main(hparams, experiment):
             "datasets/second/sorted_train_cer_0.1.pkl",
             "datasets/third/sorted_train_cer_0.1.pkl",
             "datasets/fourth/sorted_train_cer_0.1.pkl",
-            "datasets/fifth/sorted_train_cer_0.1.pkl",
-            "datasets/sixth/sorted_train_cer_0.1.pkl",
+            #"datasets/fifth/sorted_train_cer_0.1.pkl",
+            #"datasets/sixth/sorted_train_cer_0.1.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
@@ -237,7 +239,6 @@ def main(hparams, experiment):
     )
 
     model = net.SRModel(
-        hparams["n_cnn_layers"],
         hparams["n_rnn_layers"],
         hparams["rnn_dim"],
         hparams["n_vocab"],
@@ -251,16 +252,17 @@ def main(hparams, experiment):
     #    )
     # )
     model.cuda()
-    optimizer = apex.optimizers.FusedAdam(
+    #optimizer = bnb.optim.Adam8bit(
+    optimizer = torch.optim.Adam(
         model.parameters(), lr=hparams["learning_rate"]
     )
-    model, optimizer = apex.amp.initialize(model, optimizer, opt_level="O2")
 
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
+    scaler = torch.cuda.amp.GradScaler()
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
     )
@@ -273,6 +275,7 @@ def main(hparams, experiment):
             model,
             train_loader,
             criterion,
+            scaler,
             optimizer,
             scheduler,
             epoch,
@@ -305,10 +308,9 @@ if __name__ == "__main__":
     hparams = {
         "datasets": datasets,
         "multiplier": multiplier,
-        "batch_size": 32 * multiplier,
+        "batch_size": 16 * multiplier,
         "epochs": 45,
         "learning_rate": 3e-4,
-        "n_cnn_layers": 3,
         "n_rnn_layers": 10,
         "rnn_dim": 512,
         "lstm_dim": 1024,
