@@ -5,6 +5,7 @@ import time
 from comet_ml import Experiment
 import torch
 import torch.nn.functional as F
+import bitsandbytes as bnb
 
 import data
 import net
@@ -244,7 +245,6 @@ def main(hparams, experiment):
         hparams["n_vocab"],
         hparams["n_feats"],
         hparams["dropout"],
-        hparams["lstm_dim"],
     )
     # model.load_state_dict(
     #    torch.load(
@@ -252,8 +252,8 @@ def main(hparams, experiment):
     #    )
     # )
     model.cuda()
-    #optimizer = bnb.optim.Adam8bit(
-    optimizer = torch.optim.Adam(
+    optimizer = bnb.optim.Adam8bit(
+    #optimizer = torch.optim.Adam(
         model.parameters(), lr=hparams["learning_rate"]
     )
 
@@ -308,12 +308,11 @@ if __name__ == "__main__":
     hparams = {
         "datasets": datasets,
         "multiplier": multiplier,
-        "batch_size": 16 * multiplier,
+        "batch_size": 32 * multiplier,
         "epochs": 45,
         "learning_rate": 3e-4,
-        "n_rnn_layers": 10,
-        "rnn_dim": 512,
-        "lstm_dim": 1024,
+        "n_rnn_layers": 3,
+        "rnn_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
