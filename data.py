@@ -233,6 +233,7 @@ def collate_fn(data, data_type="train"):
         label_lengths.append(len(label))
 
     spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)
+    spectrograms = spectrograms.unsqueeze(1).transpose(2, 3)
     labels = nn.utils.rnn.pad_sequence(labels, batch_first=True)
 
     return spectrograms, labels, torch.IntTensor(label_lengths)
