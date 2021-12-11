@@ -177,7 +177,7 @@ def eval(
 def main(hparams, experiment):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
-    torch.backends.cudnn.benchmark = True
+    #torch.backends.cudnn.benchmark = True
 
     datasets = hparams["datasets"].split("-")
     if "tv" in datasets:

@@ -3,13 +3,13 @@ import torch.nn as nn
 import sru
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride, kernel_s):
+    def __init__(self, in_channels, out_channels, t_kernel_s):
         super().__init__()
         self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_s, stride, padding=kernel_s // 2
+            in_channels, out_channels, (3, t_kernel_s), 1, padding=(3 // 2, t_kernel_s // 2)
         )
         self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel_s, stride, padding=kernel_s // 2
+            in_channels, out_channels, (3, t_kernel_s), 1, padding=(3 // 2, t_kernel_s // 2)
         )
         self.relu = nn.ReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_channels)
@@ -52,13 +52,13 @@ class SELayer(nn.Module):
 
 
 class SingleConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, kernel_s):
         super().__init__()
         self.conv = nn.Conv1d(
             in_channels=in_channels,
             out_channels=out_channels,
-            kernel_size=7,
-            padding=7 // 2,
+            kernel_size=kernel_s,
+            padding=kernel_s // 2,
             bias=False,
         )
         self.bn = nn.BatchNorm1d(out_channels)
@@ -94,10 +94,10 @@ class SRModel(nn.Module):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
-            *[ResidualBlock(32, 32, stride=1, kernel_s=3) for _ in range(3)]
+            *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
-        self.conv_block = SingleConvBlock(n_features, rnn_dim)
+        self.conv_block = SingleConvBlock(n_features, rnn_dim, 5)
         self.sru_layers = sru.SRU(
             input_size=rnn_dim,
             hidden_size=rnn_dim,
