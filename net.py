@@ -80,8 +80,6 @@ class SingleConvBlock(nn.Module):
         x = self.relu(self.se_layer(x) + self.proj_conv(residual))
         return x
 
-
-
 class SRModel(nn.Module):
     def __init__(
         self,
