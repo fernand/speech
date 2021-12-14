@@ -101,7 +101,7 @@ class SRModel(nn.Module):
         self.sru_layers = sru.SRU(
             input_size=rnn_dim,
             hidden_size=rnn_dim,
-            num_layers=8,
+            num_layers=n_rnn_layers,
             dropout=dropout,
             rescale=False,
             layer_norm=True,
@@ -114,7 +114,6 @@ class SRModel(nn.Module):
         )
 
     def forward(self, x): # B, T, C
-        #x = x.transpose(0, 1).contiguous() # T, B, C
         x = self.cnn(x)
         x = self.resnet_layers(x)
         sizes = x.size()

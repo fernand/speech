@@ -311,7 +311,7 @@ if __name__ == "__main__":
         "batch_size": 32 * multiplier,
         "epochs": 45,
         "learning_rate": 3e-4,
-        "n_rnn_layers": 1,
+        "n_rnn_layers": 8,
         "rnn_dim": 512,
         "dropout": 0.1,
         # Does not include the blank.
