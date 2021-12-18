@@ -19,8 +19,8 @@ spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 
 train_audio_transforms = nn.Sequential(
     spectrogram_transform,
-    #torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
-    #torchaudio.transforms.TimeMasking(time_mask_param=35),
+    # torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
+    # torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 COMMON_VOICE_BAD_FILES = set(
@@ -51,7 +51,6 @@ def get_common_voice_paths(dataset_path):
 
 
 def get_librispeech_clip(audio_path):
-    audio_path = audio_path.replace("/data", "/hd1")
     path, filename = os.path.split(audio_path)
     fileid = filename.split(".")[0]
     speaker_id, chapter_id, utterance_id = fileid.split("-")
@@ -128,12 +127,13 @@ class IBMDataset(torch.utils.data.Dataset):
 
 
 class SortedTV(SortedDataset):
-    def __init__(self, dataset_paths, batch_size):
+    def __init__(self, dataset_paths, batch_size, device):
         super().__init__(batch_size)
+        hd = "/hd" + str(device + 1)
         for dataset_path in dataset_paths:
             with open(dataset_path, "rb") as f:
                 paths = [t[0] for t in pickle.load(f)]
-                paths = [p.replace("/data", "/hd1") for p in paths]
+                paths = [p.replace("/data", hd).replace("/hd1", hd) for p in paths]
                 self.paths.extend(paths)
 
     def get_clip(self, i):
@@ -142,30 +142,32 @@ class SortedTV(SortedDataset):
 
 
 class SortedLibriSpeech(SortedDataset):
-    def __init__(self, dataset_path, batch_size):
+    def __init__(self, dataset_path, batch_size, device):
         super().__init__(batch_size)
         assert dataset_path.endswith(".pkl")
+        self.hd = "/hd" + str(device + 1)
         self.paths = [t[0] for t in get_librispeech_paths(dataset_path)]
         if "train" in dataset_path:
             # Remove the longest clips.
             self.paths = self.paths[:-1000]
 
     def get_clip(self, i):
-        return get_librispeech_clip(self.paths[i].replace("/data", "/hd1"))
+        return get_librispeech_clip(self.paths[i].replace("/data", self.hd))
 
 
 class SortedCommonVoice(SortedDataset):
-    def __init__(self, dataset_path, batch_size):
+    def __init__(self, dataset_path, batch_size, device):
         super().__init__(batch_size)
         assert dataset_path.endswith(".pkl")
+        self.hd = "/hd" + str(device + 1)
         self.paths = [t[0] for t in get_common_voice_paths(dataset_path)]
 
     def get_clip(self, i):
-        return get_common_voice_clip(self.paths[i])
+        return get_common_voice_clip(self.paths[i].replace("/hd1", self.hd))
 
 
 class CombinedTVLibriSpeech(SortedDataset):
-    def __init__(self, librispeech_dataset_path, tv_dataset_paths, batch_size):
+    def __init__(self, librispeech_dataset_path, tv_dataset_paths, batch_size, device):
         super().__init__(batch_size)
         assert librispeech_dataset_path.endswith(".pkl")
         tuples = get_librispeech_paths(librispeech_dataset_path)[:-2000]
@@ -174,13 +176,14 @@ class CombinedTVLibriSpeech(SortedDataset):
                 tuples.extend(pickle.load(f))
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]
+        self.hd = "/hd" + str(device + 1)
 
     def get_clip(self, i):
         audio_path = self.paths[i]
         if "LibriSpeech" in audio_path:
-            return get_librispeech_clip(audio_path)
+            return get_librispeech_clip(audio_path.replace("/data", self.hd))
         elif "clean" in audio_path:
-            return get_tv_clip(audio_path)
+            return get_tv_clip(audio_path.replace("/hd1", self.hd))
         else:
             print(audio_path, "not in datasets")
             sys.exit(1)
@@ -193,6 +196,7 @@ class CombinedTVLibriSpeechCommonVoice(SortedDataset):
         commonvoice_dataset_path,
         tv_dataset_paths,
         batch_size,
+        device,
     ):
         super().__init__(batch_size)
         assert librispeech_dataset_path.endswith(".pkl")
@@ -204,15 +208,16 @@ class CombinedTVLibriSpeechCommonVoice(SortedDataset):
                 tuples.extend(pickle.load(f))
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]
+        self.hd = "/hd" + str(device + 1)
 
     def get_clip(self, i):
         audio_path = self.paths[i]
         if "LibriSpeech" in audio_path:
-            return get_librispeech_clip(audio_path)
+            return get_librispeech_clip(audio_path.replace("/data", self.hd))
         elif "clean" in audio_path:
-            return get_tv_clip(audio_path)
+            return get_tv_clip(audio_path.replace("/hd1", self.hd))
         elif "cv-corpus" in audio_path:
-            return get_common_voice_clip(audio_path)
+            return get_common_voice_clip(audio_path.replace("/hd1", self.hd))
         else:
             print(audio_path, "not in datasets")
             sys.exit(1)

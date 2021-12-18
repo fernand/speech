@@ -2,14 +2,23 @@ import torch
 import torch.nn as nn
 import sru
 
+
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, t_kernel_s):
         super().__init__()
         self.conv1 = nn.Conv2d(
-            in_channels, out_channels, (3, t_kernel_s), 1, padding=(3 // 2, t_kernel_s // 2)
+            in_channels,
+            out_channels,
+            (3, t_kernel_s),
+            1,
+            padding=(3 // 2, t_kernel_s // 2),
         )
         self.conv2 = nn.Conv2d(
-            in_channels, out_channels, (3, t_kernel_s), 1, padding=(3 // 2, t_kernel_s // 2)
+            in_channels,
+            out_channels,
+            (3, t_kernel_s),
+            1,
+            padding=(3 // 2, t_kernel_s // 2),
         )
         self.relu = nn.ReLU(inplace=True)
         self.bn1 = nn.BatchNorm2d(out_channels)
@@ -80,6 +89,7 @@ class SingleConvBlock(nn.Module):
         x = self.relu(self.se_layer(x) + self.proj_conv(residual))
         return x
 
+
 class SRModel(nn.Module):
     def __init__(
         self,
@@ -111,14 +121,14 @@ class SRModel(nn.Module):
             nn.Linear(rnn_dim, n_vocab + 1, bias=False),
         )
 
-    def forward(self, x): # B, T, C
+    def forward(self, x):  # B, T, C
         x = self.cnn(x)
         x = self.resnet_layers(x)
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
         x = self.conv_block(x)
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
-        x, _ = self.sru_layers(x) 
+        x, _ = self.sru_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
         return x
