@@ -19,8 +19,8 @@ spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 
 train_audio_transforms = nn.Sequential(
     spectrogram_transform,
-    # torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
-    # torchaudio.transforms.TimeMasking(time_mask_param=35),
+    torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
+    torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 COMMON_VOICE_BAD_FILES = set(

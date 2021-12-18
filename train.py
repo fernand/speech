@@ -173,12 +173,11 @@ def eval(
     return avg_cer
 
 
-def main(hparams, experiment):
+def main(hparams, experiment, device):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
     # torch.backends.cudnn.benchmark = True
 
-    device = torch.cuda.current_device()
     datasets = hparams["datasets"].split("-")
     if "tv" in datasets:
         tv_train_dataset_paths = [
@@ -186,8 +185,8 @@ def main(hparams, experiment):
             "datasets/second/sorted_train_cer_0.1.pkl",
             "datasets/third/sorted_train_cer_0.1.pkl",
             "datasets/fourth/sorted_train_cer_0.1.pkl",
-            # "datasets/fifth/sorted_train_cer_0.1.pkl",
-            # "datasets/sixth/sorted_train_cer_0.1.pkl",
+            "datasets/fifth/sorted_train_cer_0.1.pkl",
+            "datasets/sixth/sorted_train_cer_0.1.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
@@ -304,6 +303,7 @@ def main(hparams, experiment):
 if __name__ == "__main__":
     datasets = sys.argv[1]
     multiplier = int(sys.argv[2])
+    device = int(sys.argv[3])
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
@@ -323,4 +323,4 @@ if __name__ == "__main__":
         "n_vocab": 28,
         "n_feats": data.N_MELS,
     }
-    main(hparams, experiment)
+    main(hparams, experiment, device)

@@ -97,7 +97,7 @@ class SRModel(nn.Module):
         rnn_dim,
         n_vocab,
         n_feats,
-        dropout=0.1,
+        dropout,
     ):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
