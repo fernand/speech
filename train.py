@@ -10,7 +10,6 @@ import bitsandbytes as bnb
 import data
 import net
 import decoder
-import text
 
 
 def get_linear_schedule_with_warmup(
@@ -218,7 +217,7 @@ def main(hparams, experiment):
         batch_size=None,
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "train"),
-        num_workers=3,
+        num_workers=6,
         pin_memory=True,
     )
     eval_loader = torch.utils.data.DataLoader(
@@ -227,7 +226,7 @@ def main(hparams, experiment):
         # Also shuffling at the clip level in data.py
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=3,
+        num_workers=4,
         pin_memory=True,
     )
     ibm_loader = torch.utils.data.DataLoader(
@@ -235,7 +234,7 @@ def main(hparams, experiment):
         batch_size=32 * hparams["multiplier"] * 2,
         shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=3,
+        num_workers=4,
         pin_memory=True,
     )
 
