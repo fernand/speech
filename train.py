@@ -192,7 +192,9 @@ def main(hparams, experiment, device):
             "datasets/gigaspeech/sorted_train_youtube_filtered.pkl",
         ]
         tv_eval_datasets = [
-            dataset.replace("train", "eval") for dataset in tv_train_dataset_paths
+            dataset.replace("train", "eval")
+            for dataset in tv_train_dataset_paths
+            if "gigaspeech" not in dataset
         ]
         eval_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"], device)
         if "libri" in datasets:

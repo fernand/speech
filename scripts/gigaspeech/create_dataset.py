@@ -3,12 +3,17 @@ import os
 import math
 import multiprocessing
 import pickle
+import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import lz4.frame
 import scipy.io.wavfile
+
+sys.path.insert(0, "../..")
+import process.int_to_words as int_to_words
 
 
 def get_meta():
@@ -40,14 +45,43 @@ def to_wav(audio_path, tmp_dir):
     return output_path
 
 
+NUMBER_REGEXP = re.compile(r"\d+")
+ACCENT_REGEXP = re.compile(r"[éèêëà]")
+DASH_REGEXP = re.compile(r"-")
+NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
+MULTI_SPACE_REGEXP = re.compile(r"\s+")
+
+
+def replace_num(matchobj):
+    return " " + int_to_words.name_number(int(matchobj.group(0))) + " "
+
+
+ACCENT_DICT = {"é": "e", "è": "e", "ê": "e", "ë": "e", "à": "a"}
+
+# Ignore the transcript if those symbols are included.
+BLACKLIST = set(["[", "$", "¢", ".com"])
+
+
+def remove_accent(matchobj):
+    return ACCENT_DICT[matchobj.group(0)]
+
+
 def process_utterances(audio_meta):
     txt_dir = os.path.join("/nvme/gigaspeech", os.path.dirname(audio_meta["path"]))
     for segment in audio_meta["segments"]:
-        cleaned_utterance = " ".join(
+        transcript = " ".join(
             [w for w in segment["text_tn"].lower().split(" ") if not w.startswith("<")]
         )
+        if any([c in transcript for c in BLACKLIST]):
+            continue
+        transcript = re.sub(NUMBER_REGEXP, replace_num, transcript)
+        transcript = re.sub(ACCENT_REGEXP, remove_accent, transcript)
+        transcript = re.sub(DASH_REGEXP, " ", transcript)
+        transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, " ", transcript)
+        transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
+
         with open(os.path.join(txt_dir, segment["sid"] + ".txt"), "wt") as f:
-            f.write(cleaned_utterance)
+            f.write(transcript)
 
 
 def process_audio(audio_meta):
@@ -95,7 +129,7 @@ def write_train_dataset(meta, category):
             duration = segment["end_time"] - segment["begin_time"]
             dataset.append((wav_path, duration))
     dataset = sorted(dataset, key=lambda t: t[1])
-    with open(f"sorted_train_{category}.pkl", "wb") as f:
+    with open(f"../../datasets/gigaspeech/sorted_train_{category}.pkl", "wb") as f:
         pickle.dump(dataset, f)
 
 
@@ -110,7 +144,9 @@ def write_filtered_dataset(
         if duration >= min_duration and duration <= max_duration:
             filtered_dataset.append((path, duration))
     print(len(filtered_dataset))
-    with open(f"sorted_train_{category}_filtered.pkl", "wb") as f:
+    with open(
+        f"../../datasets/gigaspeech/sorted_train_{category}_filtered.pkl", "wb"
+    ) as f:
         pickle.dump(filtered_dataset, f)
 
 
@@ -121,7 +157,9 @@ if __name__ == "__main__":
     del meta
     gc.collect()
     p = multiprocessing.Pool(32)
-    p.map(process_audio, yt_meta)
+    # p.map(process_audio, yt_meta)
     p.map(process_utterances, yt_meta)
     write_train_dataset(yt_meta, "youtube")
-    write_filtered_dataset("sorted_train_youtube.pkl", "youtube")
+    write_filtered_dataset(
+        "../../datasets/gigaspeech/sorted_train_youtube.pkl", "youtube"
+    )
