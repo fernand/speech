@@ -41,10 +41,16 @@ def to_wav(audio_path, tmp_dir):
 
 
 def process_utterances(audio_meta):
-    pass
+    txt_dir = os.path.join("/nvme/gigaspeech", os.path.dirname(audio_meta["path"]))
+    for segment in audio_meta["segments"]:
+        cleaned_utterance = " ".join(
+            [w for w in segment["text_tn"].lower().split(" ") if not w.startswith("<")]
+        )
+        with open(os.path.join(txt_dir, segment["sid"] + ".txt"), "wt") as f:
+            f.write(cleaned_utterance)
 
 
-def process_meta_for_audio(audio_meta):
+def process_audio(audio_meta):
     tmp_dir = tempfile.mkdtemp()
     wav_path = to_wav(os.path.join("/nvme", audio_meta["path"]), tmp_dir)
     wav_chunk_dir = os.path.join(
@@ -80,11 +86,26 @@ def count_files_processed():
     return num_files
 
 
+def write_train_dataset(meta, category):
+    dataset = []
+    for audio_meta in meta:
+        wav_dir = os.path.join("/nvme/gigaspeech", os.path.dirname(audio_meta["path"]))
+        for segment in audio_meta["segments"]:
+            wav_path = os.path.join(wav_dir, segment["sid"] + ".wav")
+            duration = segment["end_time"] - segment["begin_time"]
+            dataset.append((wav_path, duration))
+    dataset = sorted(dataset, key=lambda t: t[1])
+    with open(f"sorted_train_{category}.pkl", "wb") as f:
+        pickle.dump(dataset, f)
+
+
 if __name__ == "__main__":
     meta = get_meta()
     yt_meta = get_youtube_audio_meta(meta)
     print(len(yt_meta))
     del meta
     gc.collect()
-    p = multiprocessing.Pool(32)
-    p.map(process_meta_for_audio, yt_meta)
+    # p = multiprocessing.Pool(32)
+    # p.map(process_audio, yt_meta)
+    # p.map(process_utterances, yt_meta)
+    write_train_dataset(yt_meta, "youtube")
