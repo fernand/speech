@@ -11,6 +11,8 @@ import data
 import net
 import decoder
 
+FP16 = True
+
 
 def get_linear_schedule_with_warmup(
     optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
@@ -64,7 +66,7 @@ def train(
 
             optimizer.zero_grad()
 
-            with torch.cuda.amp.autocast():
+            with torch.cuda.amp.autocast(enabled=FP16):
                 output = model(spectrograms)  # B, T, n_vocab+1
                 output = F.log_softmax(output, dim=2)
                 output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
@@ -266,7 +268,7 @@ def main(hparams, experiment, device):
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.cuda.amp.GradScaler(enabled=FP16)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
     )

@@ -121,7 +121,7 @@ class SRModel(nn.Module):
             nn.Linear(rnn_dim, n_vocab + 1, bias=False),
         )
 
-    def forward(self, x):  # B, T, C
+    def forward(self, x):  # B, C, T
         x = self.cnn(x)
         x = self.resnet_layers(x)
         sizes = x.size()
