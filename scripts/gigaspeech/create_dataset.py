@@ -99,13 +99,29 @@ def write_train_dataset(meta, category):
         pickle.dump(dataset, f)
 
 
+def write_filtered_dataset(
+    dataset_pkl_path, category, min_duration=1.0, max_duration=8.0
+):
+    with open(dataset_pkl_path, "rb") as f:
+        d = pickle.load(f)
+    print(len(d))
+    filtered_dataset = []
+    for path, duration in d:
+        if duration >= min_duration and duration <= max_duration:
+            filtered_dataset.append((path, duration))
+    print(len(filtered_dataset))
+    with open(f"sorted_train_{category}_filtered.pkl", "wb") as f:
+        pickle.dump(filtered_dataset, f)
+
+
 if __name__ == "__main__":
     meta = get_meta()
     yt_meta = get_youtube_audio_meta(meta)
     print(len(yt_meta))
     del meta
     gc.collect()
-    # p = multiprocessing.Pool(32)
-    # p.map(process_audio, yt_meta)
-    # p.map(process_utterances, yt_meta)
+    p = multiprocessing.Pool(32)
+    p.map(process_audio, yt_meta)
+    p.map(process_utterances, yt_meta)
     write_train_dataset(yt_meta, "youtube")
+    write_filtered_dataset("sorted_train_youtube.pkl", "youtube")

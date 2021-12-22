@@ -182,6 +182,8 @@ class CombinedTVLibriSpeech(SortedDataset):
             return get_librispeech_clip(audio_path.replace("/data", self.hd))
         elif "clean" in audio_path:
             return get_tv_clip(audio_path.replace("/hd1", self.hd))
+        elif "gigaspeech" in audio_path:
+            return get_tv_clip(audio_path)
         else:
             print(audio_path, "not in datasets")
             sys.exit(1)
