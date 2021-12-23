@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import sru
 
 
 class ResidualBlock(nn.Module):
@@ -14,7 +13,7 @@ class ResidualBlock(nn.Module):
             padding=(3 // 2, t_kernel_s // 2),
         )
         self.conv2 = nn.Conv2d(
-            in_channels,
+            out_channels,
             out_channels,
             (3, t_kernel_s),
             1,
@@ -42,51 +41,20 @@ class ResidualBlock(nn.Module):
         return x  # B, C, F, T
 
 
-class SELayer(nn.Module):
-    def __init__(self, num_channels):
+class LSTMBlock(nn.Module):
+    def __init__(self, input_dim, lstm_dim, dropout):
         super().__init__()
-        self.fc = nn.Sequential(
-            nn.Linear(num_channels, num_channels // 8),
-            nn.ReLU(inplace=True),
-            nn.Linear(num_channels // 8, num_channels),
-            nn.Sigmoid(),
-        )
+        self.has_dropout = dropout > 0.0
+        if self.has_dropout:
+            self.dropout = nn.Dropout(dropout)
+        self.ln = nn.LayerNorm(input_dim)
+        self.lstm = nn.LSTM(input_dim, lstm_dim, batch_first=False, bidirectional=False)
 
     def forward(self, x):
-        x_orig = x
-        x = torch.mean(x, dim=2, keepdim=False)
-        x = self.fc(x)
-        x = x.unsqueeze(2) * x_orig
-        return x
-
-
-class SingleConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_s):
-        super().__init__()
-        self.conv = nn.Conv1d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_s,
-            padding=kernel_s // 2,
-            bias=False,
-        )
-        self.bn = nn.BatchNorm1d(out_channels)
-        nn.init.kaiming_normal_(self.conv.weight, mode="fan_out", nonlinearity="relu")
-        nn.init.constant_(self.bn.weight, 1)
-        nn.init.constant_(self.bn.bias, 0)
-        self.se_layer = SELayer(out_channels)
-        self.proj_conv = nn.Conv1d(in_channels, out_channels, kernel_size=1, bias=False)
-        nn.init.kaiming_normal_(
-            self.proj_conv.weight, mode="fan_out", nonlinearity="relu"
-        )
-        self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x):
-        residual = x
-        x = self.conv(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.relu(self.se_layer(x) + self.proj_conv(residual))
+        x = self.ln(x)
+        if self.has_dropout:
+            x = self.dropout(x)
+        x, _ = self.lstm(x)
         return x
 
 
@@ -105,17 +73,10 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
-        self.conv_block = SingleConvBlock(n_features, rnn_dim, 5)
-        self.sru_layers = sru.SRU(
-            input_size=rnn_dim,
-            hidden_size=rnn_dim,
-            num_layers=n_rnn_layers,
-            dropout=dropout,
-            rescale=False,
-            layer_norm=True,
-            bidirectional=False,
-            amp_recurrence_fp16=True,
-        )
+        self.proj = nn.Linear(n_features, 512)
+        self.lstm_layers = [LSTMBlock(512, rnn_dim, dropout)]
+        self.lstm_layers.extend([LSTMBlock(rnn_dim, rnn_dim, dropout) for _ in range(n_rnn_layers-1)])
+        self.lstm_layers = nn.Sequential(*self.lstm_layers)
         self.classifier = nn.Sequential(
             nn.LayerNorm(rnn_dim),
             nn.Linear(rnn_dim, n_vocab + 1, bias=False),
@@ -126,9 +87,9 @@ class SRModel(nn.Module):
         x = self.resnet_layers(x)
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
-        x = self.conv_block(x)
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
-        x, _ = self.sru_layers(x)
+        x = self.proj(x)
+        x = self.lstm_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
         return x

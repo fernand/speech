@@ -235,7 +235,7 @@ def main(hparams, experiment, device):
         # Also shuffling at the clip level in data.py
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=4,
+        num_workers=2,
         pin_memory=True,
     )
     ibm_loader = torch.utils.data.DataLoader(
@@ -243,7 +243,7 @@ def main(hparams, experiment, device):
         batch_size=32 * hparams["multiplier"] * 2,
         shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
-        num_workers=4,
+        num_workers=2,
         pin_memory=True,
     )
 
@@ -321,8 +321,8 @@ if __name__ == "__main__":
         "batch_size": 32 * multiplier,
         "epochs": 45,
         "learning_rate": 3e-4,
-        "n_rnn_layers": 8,
-        "rnn_dim": 512,
+        "n_rnn_layers": 5,
+        "rnn_dim": 1024,
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
