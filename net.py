@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import sru
 
 
 class ResidualBlock(nn.Module):
@@ -41,23 +42,6 @@ class ResidualBlock(nn.Module):
         return x  # B, C, F, T
 
 
-class LSTMBlock(nn.Module):
-    def __init__(self, input_dim, lstm_dim, dropout):
-        super().__init__()
-        self.has_dropout = dropout > 0.0
-        if self.has_dropout:
-            self.dropout = nn.Dropout(dropout)
-        self.ln = nn.LayerNorm(input_dim)
-        self.lstm = nn.LSTM(input_dim, lstm_dim, batch_first=False, bidirectional=False)
-
-    def forward(self, x):
-        x = self.ln(x)
-        if self.has_dropout:
-            x = self.dropout(x)
-        x, _ = self.lstm(x)
-        return x
-
-
 class SRModel(nn.Module):
     def __init__(
         self,
@@ -73,10 +57,16 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
-        self.proj = nn.Linear(n_features, 512)
-        self.lstm_layers = [LSTMBlock(512, rnn_dim, dropout)]
-        self.lstm_layers.extend([LSTMBlock(rnn_dim, rnn_dim, dropout) for _ in range(n_rnn_layers-1)])
-        self.lstm_layers = nn.Sequential(*self.lstm_layers)
+        self.sru_layers = sru.SRU(
+            input_size=n_features,
+            hidden_size=rnn_dim,
+            num_layers=n_rnn_layers,
+            dropout=dropout,
+            rescale=False,
+            layer_norm=True,
+            bidirectional=False,
+            amp_recurrence_fp16=True,
+        )
         self.classifier = nn.Sequential(
             nn.LayerNorm(rnn_dim),
             nn.Linear(rnn_dim, n_vocab + 1, bias=False),
@@ -88,8 +78,7 @@ class SRModel(nn.Module):
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
-        x = self.proj(x)
-        x = self.lstm_layers(x)
+        x, _ = self.sru_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
         return x
