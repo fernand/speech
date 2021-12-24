@@ -230,7 +230,6 @@ def collate_fn(data, data_type="train"):
     for (waveform, utterance) in data:
         if data_type == "train":
             spec = train_audio_transforms(waveform).squeeze(0).transpose(0, 1)  # T, C
-            print(spec.shape)
         else:
             spec = spectrogram_transform(waveform).squeeze(0).transpose(0, 1)
         spectrograms.append(spec)
