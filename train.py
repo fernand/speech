@@ -85,6 +85,7 @@ def train(
                 "learning_rate", scheduler.get_lr(), step=iter_meter.get()
             )
 
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
@@ -260,11 +261,7 @@ def main(hparams, experiment, device):
     #    )
     # )
     model.cuda()
-    optimizer = bnb.optim.Adam8bit(
-        # optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=hparams["learning_rate"],
-    )
+    optimizer = bnb.optim.Adam8bit(model.parameters(), lr=hparams["learning_rate"])
 
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
