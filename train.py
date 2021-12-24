@@ -85,7 +85,7 @@ def train(
                 "learning_rate", scheduler.get_lr(), step=iter_meter.get()
             )
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
@@ -179,7 +179,6 @@ def eval(
 def main(hparams, experiment, device):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
-    # torch.backends.cudnn.benchmark = True
 
     datasets = hparams["datasets"].split("-")
     if "tv" in datasets:
