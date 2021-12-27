@@ -315,24 +315,27 @@ def main(hparams, experiment, device):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("-oi", "--one_iter", action="store_true", default=False)
-    p.add_argument("-d", "--datasets", type=str, default="tv-libri")
-    p.add_argument("-m", "--multiplier", type=int, default=2)
-    p.add_argument("-dev", "--device", type=int)
-    p.add_argument("-wd", "--weight_decay", type=float, default=0.0)
-    p.add_argument("-gn", "--clip_grad_norm", type=float, default=2.0)
-    p.add_argument("-dr", "--dropout", type=float, default=0.1)
-    p.add_argument("-lr", "--learning_rate", type=float, default=3e-4)
-    p.add_argument("-ep", "--num_epochs", type=int, default=45)
-    p.add_argument("-fp16", "--fp16", action="store_true", default=True)
+    p.add_argument("--one_iter", action="store_true")
+    p.set_defaults(one_iter=False)
+    p.add_argument("--datasets", type=str, default="tv-libri")
+    p.add_argument("--multiplier", type=int, default=2)
+    p.add_argument("--device", type=int)
+    p.add_argument("--weight_decay", type=float, default=0.0)
+    p.add_argument("--clip_grad_norm", type=float, default=2.0)
+    p.add_argument("--dropout", type=float, default=0.1)
+    p.add_argument("--learning_rate", type=float, default=3e-4)
+    p.add_argument("--num_epochs", type=int, default=45)
+    p.add_argument("--fp16", dest="fp16", action="store_true")
+    p.add_argument("--no-fp16", dest="fp16", action="store_false")
+    p.set_defaults(fp16=True)
     args = p.parse_args()
+    device = args.device
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
         # disabled=True,
     )
-    device = args.device
     hparams = {
         "datasets": args.datasets,
         "multiplier": args.multiplier,
