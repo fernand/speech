@@ -2,8 +2,9 @@ import os
 import pickle
 import sys
 import time
+from multiprocessing import Pool
 
-# import ctcdecode
+from pyctcdecode import build_ctcdecoder
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,54 +17,37 @@ import text
 
 
 def test(dataset_type, batch_size, model, test_loader, beam_decode):
-    # if beam_decode:
-    #    if dataset_type == "tv" or dataset_type == "ibm":
-    #        model_path = "lm/tv-1234-lm.arpa"
-    #    elif dataset_type == "libri":
-    #        model_path = "lm/libri-lm.arpa"
-    #    else:
-    #        print("No LM for dataset.")
-    #        sys.exit(1)
-    #    beam_decoder = ctcdecode.CTCBeamDecoder(
-    #        labels=list(text.CHARS),
-    #        model_path=model_path,
-    #        beta=0.1,
-    #        blank_id=0,
-    #        beam_width=400,
-    #        num_processes=4,
-    #        log_probs_input=True,
-    #    )
+    if beam_decode:
+        labels = list(text.CHARS)
+        ctc_decoder = build_ctcdecoder(labels, '/home/fernand/speech/huge-vocabulary.scorer', alpha=0.5, beta=1.0)
     print("\nevaluating...")
     model.eval()
     test_cer, test_wer = [], []
     bad_cers = []
+    pool = Pool(16)
     with torch.no_grad():
         for I, batch in enumerate(test_loader):
             spectrograms, labels, label_lengths = batch
             current_batch_size = labels.size(0)
             spectrograms = spectrograms.half().cuda()
 
-            output = model(spectrograms)  # B, T, n_vocab+1
-            output = F.log_softmax(output, dim=2)
-            output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
-
-            output = output.cpu().transpose(0, 1)
+            logits = model(spectrograms)  # B, T, n_vocab+1
+            output = F.log_softmax(logits, dim=2).cpu()
             labels = labels.cpu()
             label_lengths = label_lengths.cpu()
-            # if beam_decode:
-            #    beam_results, _, _, out_len = beam_decoder.decode(output)
-            #    decoded_preds, decoded_targets = [], []
-            #    for j in range(current_batch_size):
-            #        decoded_preds.append(
-            #            text.int_to_text(beam_results[j][0][: out_len[j][0]].numpy())
-            #        )
-            #        decoded_targets.append(
-            #            text.int_to_text(labels[j][: label_lengths[j]].tolist())
-            #        )
-            # else:
-            decoded_preds, decoded_targets = decoder.greedy_decoder(
-                output, labels, label_lengths
-            )
+            if beam_decode:
+                logits = logits.cpu().numpy()
+                decoded_preds, decoded_targets = [], []
+                text_list = ctc_decoder.decode_batch(pool, logits)
+                decoded_preds.extend(text_list)
+                for j in range(logits.shape[0]):
+                    decoded_targets.append(
+                        text.int_to_text(labels[j][: label_lengths[j]].tolist())
+                    )
+            else:
+                decoded_preds, decoded_targets = decoder.greedy_decoder(
+                    output, labels, label_lengths
+                )
             for j in range(current_batch_size):
                 # print(decoded_targets[j], decoded_preds[j])
                 cer = decoder.cer(decoded_targets[j], decoded_preds[j])
@@ -87,7 +71,6 @@ if __name__ == "__main__":
         "batch_size": 64,
         "epochs": 15,
         "learning_rate": 3e-4,
-        "n_cnn_layers": 3,
         "n_rnn_layers": 10,
         "rnn_dim": 512,
         "dropout": 0.1,
@@ -96,7 +79,6 @@ if __name__ == "__main__":
         "n_feats": data.N_MELS,
     }
     model = net.SRModel(
-        hparams["n_cnn_layers"],
         hparams["n_rnn_layers"],
         hparams["rnn_dim"],
         hparams["n_vocab"],

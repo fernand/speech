@@ -1,12 +1,10 @@
 # Capture: tsduck, ccextractor, ffmpeg static build, linux-mediatree hauppauge
 # Alignment: libespeak-dev, ffmpeg static build
-# Pytorch: conda install pytorch torchaudio torchtext cudatoolkit=11.0 -c pytorch
-# apex, ctcdecode, silero, kenlm
+# pytorch, kenlm
 aeneas
 comet_ml
 joblib
 python-Levenshtein
 scipy
-sox
 sru
 tqdm
