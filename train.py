@@ -1,3 +1,4 @@
+import argparse
 import math
 import sys
 import time
@@ -274,7 +275,11 @@ def main(hparams, experiment, device):
 
     iter_meter = IterMeter()
     last_cer = 2.0
-    for epoch in range(1, hparams["epochs"] + 1):
+    if hparams["one_iter"]
+        num_epochs = 1
+    else:
+        num_epochs = hparams["epochs"]
+    for epoch in range(1, num_epochs + 1):
         train(
             hparams["batch_size"],
             model,
@@ -302,26 +307,35 @@ def main(hparams, experiment, device):
 
 
 if __name__ == "__main__":
-    datasets = sys.argv[1]
-    multiplier = int(sys.argv[2])
-    device = int(sys.argv[3])
+    p = argparse.ArgumentParser()
+    p.add_argument('-oi', --'one_iter', action='store_true', default=False)
+    p.add_argument('-d', '--datasets', type=str, default='tv-libri')
+    p.add_argument('-m', '--multiplier', type=int, default=2)
+    p.add_argument('-dev', '--device', type=int)
+    p.add_argument('-wd', '--weight_decay', type=float, default=0.0)
+    p.add_argument('-dr', '--dropout', type=float, default=0.1)
+    p.add_argument('-lr', '--learning_rate', type=float, default=3e-4)
+    p.add_argument('-ep', '--num_epochs', type=int, default=45)
+    args = p.parse_args()
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
         # disabled=True,
     )
+    device = args.device
     hparams = {
-        "datasets": datasets,
-        "multiplier": multiplier,
-        "batch_size": 32 * multiplier,
-        "epochs": 45,
-        "learning_rate": 3e-4,
+        "datasets": args.datasets,
+        "multiplier": args.multiplier,
+        "batch_size": 32 * args.multiplier,
+        "epochs": args.num_epochs,
+        "learning_rate": args.learning_rate,
         "n_rnn_layers": 10,
         "rnn_dim": 512,
-        "dropout": 0.1,
+        "dropout": args.dropout,
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": data.N_MELS,
+        "one_iter": args.one_iter,
     }
     main(hparams, experiment, device)
