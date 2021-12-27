@@ -12,9 +12,6 @@ import data
 import net
 import decoder
 
-FP16 = True
-
-
 def get_linear_schedule_with_warmup(
     optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
 ):
@@ -54,6 +51,8 @@ def train(
     epoch,
     iter_meter,
     num_epochs,
+    fp16,
+    clip_grad_norm,
     experiment,
 ):
     model.train()
@@ -67,7 +66,7 @@ def train(
 
             optimizer.zero_grad()
 
-            with torch.cuda.amp.autocast(enabled=FP16):
+            with torch.cuda.amp.autocast(enabled=fp16):
                 output = model(spectrograms)  # B, T, n_vocab+1
                 output = F.log_softmax(output, dim=2)
                 output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
@@ -86,7 +85,9 @@ def train(
                 "learning_rate", scheduler.get_lr(), step=iter_meter.get()
             )
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=2.0, norm_type=2)
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(), max_norm=clip_grad_norm, norm_type=2
+            )
             scaler.step(optimizer)
             scaler.update()
             scheduler.step()
@@ -261,21 +262,25 @@ def main(hparams, experiment, device):
     #    )
     # )
     model.cuda()
-    optimizer = bnb.optim.Adam8bit(model.parameters(), lr=hparams["learning_rate"])
+    optimizer = bnb.optim.Adam8bit(
+        model.parameters(),
+        lr=hparams["learning_rate"],
+        weight_decay=hparams["weight_decay"],
+    )
 
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
-    scaler = torch.cuda.amp.GradScaler(enabled=FP16)
+    scaler = torch.cuda.amp.GradScaler(enabled=hparams["fp16"])
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
     )
 
     iter_meter = IterMeter()
     last_cer = 2.0
-    if hparams["one_iter"]
+    if hparams["one_iter"]:
         num_epochs = 1
     else:
         num_epochs = hparams["epochs"]
@@ -291,6 +296,8 @@ def main(hparams, experiment, device):
             epoch,
             iter_meter,
             hparams["epochs"],
+            hparams["fp16"],
+            hparams["clip_grad_norm"],
             experiment,
         )
         last_cer = eval(
@@ -308,14 +315,16 @@ def main(hparams, experiment, device):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument('-oi', --'one_iter', action='store_true', default=False)
-    p.add_argument('-d', '--datasets', type=str, default='tv-libri')
-    p.add_argument('-m', '--multiplier', type=int, default=2)
-    p.add_argument('-dev', '--device', type=int)
-    p.add_argument('-wd', '--weight_decay', type=float, default=0.0)
-    p.add_argument('-dr', '--dropout', type=float, default=0.1)
-    p.add_argument('-lr', '--learning_rate', type=float, default=3e-4)
-    p.add_argument('-ep', '--num_epochs', type=int, default=45)
+    p.add_argument("-oi", "--one_iter", action="store_true", default=False)
+    p.add_argument("-d", "--datasets", type=str, default="tv-libri")
+    p.add_argument("-m", "--multiplier", type=int, default=2)
+    p.add_argument("-dev", "--device", type=int)
+    p.add_argument("-wd", "--weight_decay", type=float, default=0.0)
+    p.add_argument("-gn", "--clip_grad_norm", type=float, default=2.0)
+    p.add_argument("-dr", "--dropout", type=float, default=0.1)
+    p.add_argument("-lr", "--learning_rate", type=float, default=3e-4)
+    p.add_argument("-ep", "--num_epochs", type=int, default=45)
+    p.add_argument("-fp16", "--fp16", action="store_true", default=True)
     args = p.parse_args()
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
@@ -336,6 +345,9 @@ if __name__ == "__main__":
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": data.N_MELS,
+        "weight_decay": args.weight_decay,
+        "fp16": args.fp16,
+        "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
     }
     main(hparams, experiment, device)
