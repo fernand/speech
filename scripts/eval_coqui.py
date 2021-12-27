@@ -12,13 +12,12 @@ import decoder
 
 
 def split_into_chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
-        yield lst[i:i + n]
+        yield lst[i : i + n]
 
 
 def process_chunk(chunk_idx, chunk):
-    model = stt.Model('/home/fernand/speech/coqui/model.tflite')
+    model = stt.Model("/home/fernand/speech/coqui/model.tflite")
     cers, wers = [], []
     if chunk_idx == 0:
         itr = tqdm(chunk)
@@ -32,20 +31,18 @@ def process_chunk(chunk_idx, chunk):
         cers.append(decoder.cer(utterance, text))
         wers.append(decoder.wer(utterance, text))
     return (cers, wers)
-    
+
 
 if __name__ == "__main__":
     audio_paths = [
-        os.path.join("/hd1/ibm", f)
-        for f in os.listdir("/hd1/ibm")
-        if f.endswith("wav")
+        os.path.join("/hd1/ibm", f) for f in os.listdir("/hd1/ibm") if f.endswith("wav")
     ]
     num_workers = 16
     num_per_chunk = math.ceil(len(audio_paths) / num_workers)
     chunks = list(split_into_chunks(audio_paths, num_per_chunk))
     p = Pool(num_workers)
     res = p.starmap(process_chunk, [(i, chunks[i]) for i in range(len(chunks))])
-    
+
     test_cer, test_wer = [], []
     for cers, wers in res:
         test_cer.extend(cers)
