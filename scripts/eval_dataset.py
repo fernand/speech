@@ -19,7 +19,12 @@ import text
 def test(dataset_type, batch_size, model, test_loader, beam_decode):
     if beam_decode:
         labels = list(text.CHARS)
-        ctc_decoder = build_ctcdecoder(labels, '/home/fernand/speech/huge-vocabulary.scorer', alpha=0.5, beta=1.0)
+        ctc_decoder = build_ctcdecoder(
+            labels,
+            "/home/fernand/speech/coqui/huge-vocabulary.scorer",
+            alpha=0.5,
+            beta=1.0,
+        )
     print("\nevaluating...")
     model.eval()
     test_cer, test_wer = [], []
