@@ -51,7 +51,6 @@ def train(
     epoch,
     iter_meter,
     num_epochs,
-    fp16,
     clip_grad_norm,
     experiment,
 ):
@@ -66,7 +65,7 @@ def train(
 
             optimizer.zero_grad()
 
-            with torch.cuda.amp.autocast(enabled=fp16):
+            with torch.cuda.amp.autocast():
                 output = model(spectrograms)  # B, T, n_vocab+1
                 output = F.log_softmax(output, dim=2)
                 output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
@@ -80,10 +79,11 @@ def train(
 
             scaler.scale(loss).backward()
 
-            experiment.log_metric("loss", loss.item(), step=iter_meter.get())
-            experiment.log_metric(
-                "learning_rate", scheduler.get_lr(), step=iter_meter.get()
-            )
+            if batch_idx % 100 == 0:
+                experiment.log_metric("loss", loss.item(), step=iter_meter.get())
+                experiment.log_metric(
+                    "learning_rate", scheduler.get_lr(), step=iter_meter.get()
+                )
 
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(), max_norm=clip_grad_norm, norm_type=2
@@ -273,7 +273,7 @@ def main(hparams, experiment, device):
     )
 
     criterion = torch.nn.CTCLoss(blank=0).cuda()
-    scaler = torch.cuda.amp.GradScaler(enabled=hparams["fp16"])
+    scaler = torch.cuda.amp.GradScaler()
     scheduler = get_linear_schedule_with_warmup(
         optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
     )
@@ -296,7 +296,6 @@ def main(hparams, experiment, device):
             epoch,
             iter_meter,
             hparams["epochs"],
-            hparams["fp16"],
             hparams["clip_grad_norm"],
             experiment,
         )
@@ -325,15 +324,13 @@ if __name__ == "__main__":
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
-    p.add_argument("--fp16", dest="fp16", action="store_true")
-    p.add_argument("--no-fp16", dest="fp16", action="store_false")
-    p.set_defaults(fp16=True)
     args = p.parse_args()
     device = args.device
     experiment = Experiment(
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
+        auto_metric_step_rate=100,
         # disabled=True,
     )
     hparams = {
@@ -349,7 +346,6 @@ if __name__ == "__main__":
         "n_vocab": 28,
         "n_feats": data.N_MELS,
         "weight_decay": args.weight_decay,
-        "fp16": args.fp16,
         "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
     }
