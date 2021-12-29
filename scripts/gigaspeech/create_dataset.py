@@ -102,16 +102,16 @@ def process_audio(audio_meta):
     shutil.rmtree(tmp_dir)
 
 
-def get_youtube_audio_meta(meta):
-    yt_meta = []
+def get_audio_meta(category, meta):
+    category_meta = []
     for audio_meta in meta["audios"]:
-        if "youtube" in audio_meta["path"]:
-            yt_meta.append(audio_meta)
-    return yt_meta
+        if category in audio_meta["path"]:
+            category_meta.append(audio_meta)
+    return category_meta
 
 
-def count_files_processed():
-    root_dir = "/nvme/gigaspeech/audio/youtube"
+def count_files_processed(category):
+    root_dir = f"/nvme/gigaspeech/audio/{category}"
     sub_dirs = [os.path.join(root_dir, f) for f in os.listdir(root_dir)]
     num_files = 0
     for sub_dir in sub_dirs:
@@ -151,15 +151,16 @@ def write_filtered_dataset(
 
 
 if __name__ == "__main__":
+    CATEGORY = "audiobook"
     meta = get_meta()
-    yt_meta = get_youtube_audio_meta(meta)
-    print(len(yt_meta))
+    category_meta = get_audio_meta(CATEGORY, meta)
+    print(len(category_meta))
     del meta
     gc.collect()
     p = multiprocessing.Pool(32)
-    # p.map(process_audio, yt_meta)
-    p.map(process_utterances, yt_meta)
-    write_train_dataset(yt_meta, "youtube")
+    p.map(process_audio, category_meta)
+    p.map(process_utterances, category_meta)
+    write_train_dataset(category_meta, CATEGORY)
     write_filtered_dataset(
-        "../../datasets/gigaspeech/sorted_train_youtube.pkl", "youtube"
+        f"../../datasets/gigaspeech/sorted_train_{CATEGORY}.pkl", CATEGORY
     )
