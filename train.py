@@ -192,6 +192,8 @@ def main(hparams, experiment, device):
             "datasets/fifth/sorted_train_cer_0.1.pkl",
             "datasets/sixth/sorted_train_cer_0.1.pkl",
             "datasets/gigaspeech/sorted_train_youtube_filtered.pkl",
+            "datasets/gigaspeech/sorted_train_podcast_filtered.pkl",
+            "datasets/gigaspeech/sorted_train_audiobook_filtered.pkl",
         ]
         tv_eval_datasets = [
             dataset.replace("train", "eval")
