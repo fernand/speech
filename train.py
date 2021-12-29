@@ -320,7 +320,7 @@ if __name__ == "__main__":
     p.add_argument("--multiplier", type=int, default=2)
     p.add_argument("--device", type=int)
     p.add_argument("--weight_decay", type=float, default=0.04)
-    p.add_argument("--clip_grad_norm", type=float, default=5.0)
+    p.add_argument("--clip_grad_norm", type=float, default=2.0)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
