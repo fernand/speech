@@ -79,7 +79,7 @@ def train(
 
             scaler.scale(loss).backward()
 
-            if batch_idx % 100 == 0:
+            if batch_idx % 1000 == 0:
                 experiment.log_metric("loss", loss.item(), step=iter_meter.get())
                 experiment.log_metric(
                     "learning_rate", scheduler.get_lr(), step=iter_meter.get()
@@ -332,7 +332,11 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        auto_metric_step_rate=100,
+        auto_metric_step_rate=1000,
+        log_env_gpu=False,
+        log_env_cpu=False,
+        log_env_host=False,
+        log_env_details=False,
         # disabled=True,
     )
     hparams = {
