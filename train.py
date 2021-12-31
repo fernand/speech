@@ -7,7 +7,6 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 
-# import bitsandbytes as bnb
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from torch.distributed.elastic.multiprocessing.errors import record
@@ -47,6 +46,7 @@ class IterMeter(object):
 
 def train(
     rank,
+    world_size,
     batch_size,
     model,
     train_loader,
@@ -92,14 +92,14 @@ def train(
         scaler.update()
         scheduler.step()
         iter_meter.step()
-        if batch_idx % 100 == 0:
+        if rank == 0 and batch_idx % 100 == 0:
             time_for_100_batches = round(time.time() - batch_start, 1)
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                     epoch,
                     batch_idx,
-                    data_len,
-                    100.0 * batch_idx / data_len,
+                    data_len // world_size,
+                    100.0 * batch_idx / (data_len // world_size),
                     loss.item(),
                     time_for_100_batches,
                 )
@@ -250,7 +250,7 @@ def main():
     p.add_argument("--one_iter", action="store_true")
     p.set_defaults(one_iter=False)
     p.add_argument("--datasets", type=str, default="tv-libri")
-    p.add_argument("--multiplier", type=int, default=1)
+    p.add_argument("--multiplier", type=int, default=2)
     p.add_argument("--weight_decay", type=float, default=0.001)
     p.add_argument("--clip_grad_norm", type=float, default=2.0)
     p.add_argument("--dropout", type=float, default=0.1)
@@ -259,7 +259,7 @@ def main():
     p.add_argument("--projection_size", type=int, default=0)
     args = p.parse_args()
 
-    dist.init_process_group(backend="gloo")
+    dist.init_process_group(backend="nccl")
     rank = int(os.environ["LOCAL_RANK"])
     world_size = int(os.environ["WORLD_SIZE"])
 
@@ -330,9 +330,10 @@ def main():
     )
 
     if rank == 0:
-        eval_loader, ibm_loader = get_eval_loaders(
-            hparams["datasets"], hparams["batch_size"], hparams["multiplier"]
-        )
+        # eval_loader, ibm_loader = get_eval_loaders(
+        #     hparams["datasets"], hparams["batch_size"], hparams["multiplier"]
+        # )
+        eval_loader, ibm_loader = None, None
 
     if hparams["one_iter"]:
         num_epochs = 1
@@ -345,6 +346,7 @@ def main():
         train_loader.sampler.set_epoch(epoch)
         train(
             rank,
+            world_size,
             hparams["batch_size"],
             model,
             train_loader,
