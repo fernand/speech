@@ -56,7 +56,7 @@ class SRModel(nn.Module):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
-            *[ResidualBlock(32, 32, t_kernel_s=3) for _ in range(3)]
+            *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
         self.sru_layers = sru.SRU(
