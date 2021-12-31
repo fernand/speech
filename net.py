@@ -51,6 +51,7 @@ class SRModel(nn.Module):
         n_feats,
         dropout,
         highway_bias,
+        projection_size,
     ):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
@@ -62,6 +63,7 @@ class SRModel(nn.Module):
             input_size=n_features,
             hidden_size=rnn_dim,
             num_layers=n_rnn_layers,
+            projection_size=projection_size,
             dropout=dropout,
             rescale=False,
             layer_norm=True,

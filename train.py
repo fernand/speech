@@ -252,6 +252,7 @@ def main(hparams, experiment, device):
         hparams["n_feats"],
         hparams["dropout"],
         hparams["highway_bias"],
+        hparams["projection_size"],
     )
     # model.load_state_dict(
     #    torch.load(
@@ -322,6 +323,7 @@ if __name__ == "__main__":
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
     p.add_argument("--highway_bias", type=float, default=0.0)
+    p.add_argument("--projection_size", type=int, default=0)
     args = p.parse_args()
     device = args.device
     experiment = Experiment(
@@ -351,5 +353,6 @@ if __name__ == "__main__":
         "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
         "highway_bias": args.highway_bias,
+        "projection_size": args.projection_size,
     }
     main(hparams, experiment, device)
