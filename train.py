@@ -1,16 +1,21 @@
 import argparse
-import math
-import sys
+import os
 import time
 
-from comet_ml import Experiment
+# from comet_ml import Experiment
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
-import bitsandbytes as bnb
+
+# import bitsandbytes as bnb
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+from torch.distributed.elastic.multiprocessing.errors import record
 
 import data
 import net
 import decoder
+
 
 def get_linear_schedule_with_warmup(
     optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
@@ -41,6 +46,7 @@ class IterMeter(object):
 
 
 def train(
+    rank,
     batch_size,
     model,
     train_loader,
@@ -58,58 +64,58 @@ def train(
     data_len = len(train_loader.dataset)
     start = time.time()
     batch_start = start
-    with experiment.train():
-        for batch_idx, batch in enumerate(train_loader):
-            spectrograms, labels, label_lengths = batch
-            spectrograms = spectrograms.cuda()
+    # with experiment.train():
+    for batch_idx, batch in enumerate(train_loader):
+        spectrograms, labels, label_lengths = batch
+        spectrograms = spectrograms.to(rank)
 
-            optimizer.zero_grad()
+        optimizer.zero_grad()
 
-            with torch.cuda.amp.autocast():
-                output = model(spectrograms)  # B, T, n_vocab+1
-                output = F.log_softmax(output, dim=2)
-                output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
+        with torch.cuda.amp.autocast():
+            output = model(spectrograms)  # B, T, n_vocab+1
+            output = F.log_softmax(output, dim=2)
+            output = output.transpose(0, 1).contiguous()  # T, B, n_vocab+1
 
-                input_lengths = torch.full(
-                    (batch_size,), output.size(0), dtype=torch.int32
-                ).cuda()
-                label_lengths = label_lengths.cuda()
-                labels = labels.cuda()
-                loss = criterion(output, labels, input_lengths, label_lengths)
+            input_lengths = torch.full(
+                (batch_size,), output.size(0), dtype=torch.int32
+            ).to(rank)
+            label_lengths = label_lengths.to(rank)
+            labels = labels.to(rank)
+            loss = criterion(output, labels, input_lengths, label_lengths)
 
-            scaler.scale(loss).backward()
+        scaler.scale(loss).backward()
 
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), max_norm=clip_grad_norm, norm_type=2
-            )
-            scaler.step(optimizer)
-            scaler.update()
-            scheduler.step()
-            iter_meter.step()
-            if batch_idx % 100 == 0:
-                time_for_100_batches = round(time.time() - batch_start, 1)
-                print(
-                    "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
-                        epoch,
-                        batch_idx,
-                        data_len,
-                        100.0 * batch_idx / data_len,
-                        loss.item(),
-                        time_for_100_batches,
-                    )
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(), max_norm=clip_grad_norm, norm_type=2
+        )
+        scaler.step(optimizer)
+        scaler.update()
+        scheduler.step()
+        iter_meter.step()
+        if batch_idx % 100 == 0:
+            time_for_100_batches = round(time.time() - batch_start, 1)
+            print(
+                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
+                    epoch,
+                    batch_idx,
+                    data_len,
+                    100.0 * batch_idx / data_len,
+                    loss.item(),
+                    time_for_100_batches,
                 )
-                batch_start = time.time()
+            )
+            batch_start = time.time()
     epoch_time = round(time.time() - start)
-    experiment.log_metric("epoch_time", epoch_time)
+    # experiment.log_metric("epoch_time", epoch_time)
 
 
-def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
+def eval_dataset(rank, experiment, model, criterion, loader, name, iter_meter):
     eval_loss = 0
     eval_cer, eval_wer = [], []
-    for I, batch in enumerate(loader):
+    for _, batch in enumerate(loader):
         spectrograms, labels, label_lengths = batch
         current_batch_size = labels.size(0)
-        spectrograms = spectrograms.cuda()
+        spectrograms = spectrograms.to(rank)
 
         output = model(spectrograms)  # B, T, n_vocab+1
         output = F.log_softmax(output, dim=2)
@@ -117,9 +123,9 @@ def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
 
         input_lengths = torch.full(
             (current_batch_size,), output.size(0), dtype=torch.int32
-        ).cuda()
-        label_lengths = label_lengths.cuda()
-        labels = labels.cuda()
+        ).to(rank)
+        label_lengths = label_lengths.to(rank)
+        labels = labels.to(rank)
         loss = criterion(output, labels, input_lengths, label_lengths)
         eval_loss += loss.item() / len(loader)
 
@@ -134,9 +140,9 @@ def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
             eval_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
     avg_cer = sum(eval_cer) / len(eval_cer)
     avg_wer = sum(eval_wer) / len(eval_wer)
-    experiment.log_metric(f"{name}_loss", eval_loss, step=iter_meter.get())
-    experiment.log_metric(f"{name}_cer", avg_cer, step=iter_meter.get())
-    experiment.log_metric(f"{name}_wer", avg_wer, step=iter_meter.get())
+    # experiment.log_metric(f"{name}_loss", eval_loss, step=iter_meter.get())
+    # experiment.log_metric(f"{name}_cer", avg_cer, step=iter_meter.get())
+    # experiment.log_metric(f"{name}_wer", avg_wer, step=iter_meter.get())
     print(
         "{}: Average loss: {:.4f}, Average CER: {:4f} Average WER: {:.4f}\n".format(
             name, eval_loss, avg_cer, avg_wer
@@ -146,6 +152,7 @@ def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
 
 
 def eval(
+    rank,
     batch_size,
     model,
     eval_loader,
@@ -158,75 +165,65 @@ def eval(
 ):
     print("\nevaluating…")
     model.eval()
-    with experiment.test():
-        with torch.no_grad():
-            _ = eval_dataset(
-                experiment, model, criterion, eval_loader, "tv", iter_meter
-            )
-            avg_cer = eval_dataset(
-                experiment, model, criterion, ibm_loader, "ibm", iter_meter
-            )
+    # with experiment.test():
+    with torch.no_grad():
+        _ = eval_dataset(
+            rank, experiment, model, criterion, eval_loader, "tv", iter_meter
+        )
+        avg_cer = eval_dataset(
+            rank, experiment, model, criterion, ibm_loader, "ibm", iter_meter
+        )
     if avg_cer < last_cer:
-        exp_id = experiment.url.split("/")[-1]
-        torch.save(model.state_dict(), f"model_{exp_id}.pth")
+        # exp_id = experiment.url.split("/")[-1]
+        # torch.save(model.state_dict(), f"model_{exp_id}.pth")
+        torch.save(model.state_dict(), f"model.pth")
     return avg_cer
 
 
-def main(hparams, experiment, device):
-    experiment.log_parameters(hparams)
-    torch.manual_seed(7)
+TV_TRAIN_DATASET_PATHS = [
+    "datasets/first/sorted_train_cer_0.1.pkl",
+    "datasets/second/sorted_train_cer_0.1.pkl",
+    "datasets/third/sorted_train_cer_0.1.pkl",
+    "datasets/fourth/sorted_train_cer_0.1.pkl",
+    "datasets/fifth/sorted_train_cer_0.1.pkl",
+    "datasets/sixth/sorted_train_cer_0.1.pkl",
+    "datasets/gigaspeech/sorted_train_youtube_filtered.pkl",
+    "datasets/gigaspeech/sorted_train_podcast_filtered.pkl",
+    "datasets/gigaspeech/sorted_train_audiobook_filtered.pkl",
+]
 
-    datasets = hparams["datasets"].split("-")
-    if "tv" in datasets:
-        tv_train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.1.pkl",
-            "datasets/second/sorted_train_cer_0.1.pkl",
-            "datasets/third/sorted_train_cer_0.1.pkl",
-            "datasets/fourth/sorted_train_cer_0.1.pkl",
-            "datasets/fifth/sorted_train_cer_0.1.pkl",
-            "datasets/sixth/sorted_train_cer_0.1.pkl",
-            "datasets/gigaspeech/sorted_train_youtube_filtered.pkl",
-            "datasets/gigaspeech/sorted_train_podcast_filtered.pkl",
-            "datasets/gigaspeech/sorted_train_audiobook_filtered.pkl",
-        ]
-        tv_eval_datasets = [
-            dataset.replace("train", "eval")
-            for dataset in tv_train_dataset_paths
-            if "gigaspeech" not in dataset
-        ]
-        eval_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"], device)
-        if "libri" in datasets:
-            if "cv" in datasets:
-                train_dataset = data.CombinedTVLibriSpeechCommonVoice(
-                    "datasets/librispeech/sorted_train_librispeech.pkl",
-                    "datasets/commonvoice/sorted_train_commonvoice.pkl",
-                    tv_train_dataset_paths,
-                    hparams["batch_size"],
-                    device,
-                )
-            else:
-                train_dataset = data.CombinedTVLibriSpeech(
-                    "datasets/librispeech/sorted_train_librispeech.pkl",
-                    tv_train_dataset_paths,
-                    hparams["batch_size"],
-                    device,
-                )
-        else:
-            train_dataset = data.SortedTV(
-                tv_train_dataset_paths, hparams["batch_size"], device
-            )
-    else:
-        print("Unkown dataset", hparams["dataset"])
-        sys.exit(1)
 
-    train_loader = torch.utils.data.DataLoader(
+def get_train_loader(rank, world_size, datasets, batch_size):
+    datasets = datasets.split("-")
+    assert "tv" in datasets
+    train_dataset = data.CombinedTVLibriSpeech(
+        "datasets/librispeech/sorted_train_librispeech.pkl",
+        TV_TRAIN_DATASET_PATHS,
+        batch_size,
+    )
+    sampler = DistributedSampler(
+        train_dataset, num_replicas=world_size, rank=rank, shuffle=True, drop_last=True
+    )
+    return torch.utils.data.DataLoader(
         dataset=train_dataset,
         batch_size=None,
-        shuffle=True,
+        sampler=sampler,
+        shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "train"),
         num_workers=6,
         pin_memory=True,
     )
+
+
+def get_eval_loaders(datasets, batch_size, multiplier):
+    datasets = datasets.split("-")
+    assert "tv" in datasets
+    tv_eval_datasets = [
+        dataset.replace("train", "eval")
+        for dataset in TV_TRAIN_DATASET_PATHS
+        if "gigaspeech" not in dataset
+    ]
+    eval_dataset = data.SortedTV(tv_eval_datasets, batch_size)
     eval_loader = torch.utils.data.DataLoader(
         dataset=eval_dataset,
         batch_size=None,
@@ -238,105 +235,46 @@ def main(hparams, experiment, device):
     )
     ibm_loader = torch.utils.data.DataLoader(
         dataset=data.IBMDataset(),
-        batch_size=32 * hparams["multiplier"] * 2,
+        batch_size=32 * multiplier * 2,
         shuffle=False,
         collate_fn=lambda x: data.collate_fn(x, "valid"),
         num_workers=4,
         pin_memory=True,
     )
-
-    model = net.SRModel(
-        hparams["n_rnn_layers"],
-        hparams["rnn_dim"],
-        hparams["n_vocab"],
-        hparams["n_feats"],
-        hparams["dropout"],
-        hparams["highway_bias"],
-        hparams["projection_size"],
-    )
-    # model.load_state_dict(
-    #    torch.load(
-    #        "good_models/v2-sru-1234-0.1cer/model_f4dd9b8968b94ee6b278266af30dfcef.pth"
-    #    )
-    # )
-    model.cuda()
-    optimizer = bnb.optim.Adam8bit(
-        model.parameters(),
-        lr=hparams["learning_rate"],
-        weight_decay=hparams["weight_decay"],
-    )
-
-    print(
-        "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
-    )
-
-    criterion = torch.nn.CTCLoss(blank=0).cuda()
-    scaler = torch.cuda.amp.GradScaler()
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
-    )
-
-    iter_meter = IterMeter()
-    last_cer = 2.0
-    if hparams["one_iter"]:
-        num_epochs = 1
-    else:
-        num_epochs = hparams["epochs"]
-    for epoch in range(1, num_epochs + 1):
-        train(
-            hparams["batch_size"],
-            model,
-            train_loader,
-            criterion,
-            scaler,
-            optimizer,
-            scheduler,
-            epoch,
-            iter_meter,
-            hparams["epochs"],
-            hparams["clip_grad_norm"],
-            experiment,
-        )
-        last_cer = eval(
-            hparams["batch_size"],
-            model,
-            eval_loader,
-            ibm_loader,
-            criterion,
-            epoch,
-            iter_meter,
-            experiment,
-            last_cer,
-        )
+    return eval_loader, ibm_loader
 
 
-if __name__ == "__main__":
+@record
+def main():
     p = argparse.ArgumentParser()
     p.add_argument("--one_iter", action="store_true")
     p.set_defaults(one_iter=False)
     p.add_argument("--datasets", type=str, default="tv-libri")
-    p.add_argument("--multiplier", type=int, default=2)
-    p.add_argument("--device", type=int)
+    p.add_argument("--multiplier", type=int, default=1)
     p.add_argument("--weight_decay", type=float, default=0.001)
     p.add_argument("--clip_grad_norm", type=float, default=2.0)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
-    p.add_argument("--highway_bias", type=float, default=0.0)
     p.add_argument("--projection_size", type=int, default=0)
     args = p.parse_args()
-    device = args.device
-    experiment = Experiment(
-        api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
-        project_name="general",
-        workspace="fernand",
-        auto_metric_logging=False,
-        log_env_gpu=False,
-        log_env_cpu=False,
-        log_env_host=False,
-        log_env_details=False,
-        # disabled=True,
-    )
+
+    dist.init_process_group(backend="gloo")
+    rank = int(os.environ["LOCAL_RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+
+    # experiment = Experiment(
+    #     api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
+    #     project_name="general",
+    #     workspace="fernand",
+    #     auto_metric_logging=False,
+    #     log_env_gpu=False,
+    #     log_env_cpu=False,
+    #     log_env_host=False,
+    #     log_env_details=False,
+    #     # disabled=True,
+    # )
+    experiment = None
     hparams = {
         "datasets": args.datasets,
         "multiplier": args.multiplier,
@@ -352,7 +290,89 @@ if __name__ == "__main__":
         "weight_decay": args.weight_decay,
         "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
-        "highway_bias": args.highway_bias,
         "projection_size": args.projection_size,
     }
-    main(hparams, experiment, device)
+
+    # if rank == 0:
+    #     experiment.log_parameters(hparams)
+    torch.manual_seed(7)
+
+    model = DDP(
+        net.SRModel(
+            hparams["n_rnn_layers"],
+            hparams["rnn_dim"],
+            hparams["n_vocab"],
+            hparams["n_feats"],
+            hparams["dropout"],
+            hparams["projection_size"],
+        ).to(rank),
+        device_ids=[rank],
+        output_device=rank,
+    )
+    if rank == 0:
+        print(
+            "Num Model Parameters",
+            sum([param.nelement() for param in model.parameters()]),
+        )
+
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=hparams["learning_rate"],
+        weight_decay=hparams["weight_decay"],
+    )
+    criterion = torch.nn.CTCLoss(blank=0).to(rank)
+    scaler = torch.cuda.amp.GradScaler()
+    train_loader = get_train_loader(
+        rank, world_size, hparams["datasets"], hparams["batch_size"]
+    )
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
+    )
+
+    if rank == 0:
+        eval_loader, ibm_loader = get_eval_loaders(
+            hparams["datasets"], hparams["batch_size"], hparams["multiplier"]
+        )
+
+    if hparams["one_iter"]:
+        num_epochs = 1
+    else:
+        num_epochs = hparams["epochs"]
+    iter_meter = IterMeter()
+    if rank == 0:
+        last_cer = 2.0
+    for epoch in range(1, num_epochs + 1):
+        train_loader.sampler.set_epoch(epoch)
+        train(
+            rank,
+            hparams["batch_size"],
+            model,
+            train_loader,
+            criterion,
+            scaler,
+            optimizer,
+            scheduler,
+            epoch,
+            iter_meter,
+            hparams["epochs"],
+            hparams["clip_grad_norm"],
+            experiment,
+        )
+        if rank == 0:
+            last_cer = eval(
+                rank,
+                hparams["batch_size"],
+                model,
+                eval_loader,
+                ibm_loader,
+                criterion,
+                epoch,
+                iter_meter,
+                experiment,
+                last_cer,
+            )
+        dist.barrier()
+
+
+if __name__ == "__main__":
+    main()
