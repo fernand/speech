@@ -57,19 +57,21 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
-        self.sru_layers = sru.SRU(
+        self.sru_layers = sru.SRUpp(
             input_size=n_features,
             hidden_size=rnn_dim,
+            proj_size=256,
+            num_heads=1,
             num_layers=n_rnn_layers,
             dropout=dropout,
             rescale=False,
             layer_norm=True,
-            bidirectional=False,
-            amp_recurrence_fp16=True,
+            bidirectional=True,
+            attention_every_n_layers=10,
         )
         self.classifier = nn.Sequential(
-            nn.LayerNorm(rnn_dim),
-            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
+            nn.LayerNorm(2*rnn_dim),
+            nn.Linear(2*rnn_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):  # B, C, T
@@ -78,7 +80,7 @@ class SRModel(nn.Module):
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
-        x, _ = self.sru_layers(x)
+        x, _, _ = self.sru_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
         return x

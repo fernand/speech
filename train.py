@@ -79,12 +79,6 @@ def train(
 
             scaler.scale(loss).backward()
 
-            if batch_idx % 1000 == 0:
-                experiment.log_metric("loss", loss.item(), step=iter_meter.get())
-                experiment.log_metric(
-                    "learning_rate", scheduler.get_lr(), step=iter_meter.get()
-                )
-
             torch.nn.utils.clip_grad_norm_(
                 model.parameters(), max_norm=clip_grad_norm, norm_type=2
             )
@@ -321,7 +315,7 @@ if __name__ == "__main__":
     p.add_argument("--datasets", type=str, default="tv-libri")
     p.add_argument("--multiplier", type=int, default=2)
     p.add_argument("--device", type=int)
-    p.add_argument("--weight_decay", type=float, default=0.04)
+    p.add_argument("--weight_decay", type=float, default=0.001)
     p.add_argument("--clip_grad_norm", type=float, default=2.0)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
@@ -332,7 +326,7 @@ if __name__ == "__main__":
         api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
         project_name="general",
         workspace="fernand",
-        auto_metric_step_rate=1000,
+        auto_metric_logging=False,
         log_env_gpu=False,
         log_env_cpu=False,
         log_env_host=False,
