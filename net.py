@@ -50,11 +50,12 @@ class SRModel(nn.Module):
         n_vocab,
         n_feats,
         dropout,
+        highway_bias,
     ):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
-            *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
+            *[ResidualBlock(32, 32, t_kernel_s=3) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
         self.sru_layers = sru.SRUpp(
@@ -67,7 +68,8 @@ class SRModel(nn.Module):
             rescale=False,
             layer_norm=True,
             bidirectional=True,
-            attention_every_n_layers=10,
+            attention_every_n_layers=n_rnn_layers,
+            highway_bias=highway_bias,
         )
         self.classifier = nn.Sequential(
             nn.LayerNorm(2*rnn_dim),
