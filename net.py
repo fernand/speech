@@ -50,7 +50,6 @@ class SRModel(nn.Module):
         n_vocab,
         n_feats,
         dropout,
-        highway_bias,
         projection_size,
     ):
         super().__init__()
@@ -66,14 +65,14 @@ class SRModel(nn.Module):
             projection_size=projection_size,
             dropout=dropout,
             rescale=False,
+            highway_bias=0.0,
             layer_norm=True,
             bidirectional=True,
             amp_recurrence_fp16=True,
-            highway_bias=highway_bias,
         )
         self.classifier = nn.Sequential(
-            nn.LayerNorm(2*rnn_dim),
-            nn.Linear(2*rnn_dim, n_vocab + 1, bias=False),
+            nn.LayerNorm(2 * rnn_dim),
+            nn.Linear(2 * rnn_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):  # B, C, T

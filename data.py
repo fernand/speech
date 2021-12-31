@@ -21,30 +21,10 @@ train_audio_transforms = nn.Sequential(
     torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
-COMMON_VOICE_BAD_FILES = set(
-    [
-        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_19999612.mp3",
-        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_20068848.mp3",
-        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_671901.mp3",
-        "/data/cv-corpus-5.1-2020-06-22/en/clips/common_voice_en_21791783.mp3",
-    ]
-)
-
 
 def get_librispeech_paths(dataset_path):
     with open(dataset_path, "rb") as f:
         paths = [(t[0], t[1] / 16000) for t in pickle.load(f)]
-    return paths
-
-
-def get_common_voice_paths(dataset_path):
-    with open("datasets/commonvoice/bad_files.pkl", "rb") as f:
-        bad_files = pickle.load(f)
-    bad_files = bad_files.union(COMMON_VOICE_BAD_FILES)
-    with open(dataset_path, "rb") as f:
-        paths = [
-            t for t in pickle.load(f) if t[0].replace(".mp3", ".wav") not in bad_files
-        ]
     return paths
 
 
@@ -65,15 +45,6 @@ def get_librispeech_clip(audio_path):
                 break
 
     return (waveform, utterance.lower())
-
-
-def get_common_voice_clip(audio_path):
-    audio_path = audio_path.replace("/data", "/hd1").replace(".mp3", ".wav")
-    text_path = audio_path.replace(".wav", ".txt")
-    waveform, sample_rate = torchaudio.load(audio_path, normalize=True)
-    with open(text_path) as f:
-        utterance = f.read().strip()
-    return (waveform, utterance)
 
 
 def get_tv_clip(audio_path):
@@ -139,31 +110,6 @@ class SortedTV(SortedDataset):
         return get_tv_clip(audio_path)
 
 
-class SortedLibriSpeech(SortedDataset):
-    def __init__(self, dataset_path, batch_size, device):
-        super().__init__(batch_size)
-        assert dataset_path.endswith(".pkl")
-        self.hd = "/hd" + str(device + 1)
-        self.paths = [t[0] for t in get_librispeech_paths(dataset_path)]
-        if "train" in dataset_path:
-            # Remove the longest clips.
-            self.paths = self.paths[:-1000]
-
-    def get_clip(self, i):
-        return get_librispeech_clip(self.paths[i].replace("/data", self.hd))
-
-
-class SortedCommonVoice(SortedDataset):
-    def __init__(self, dataset_path, batch_size, device):
-        super().__init__(batch_size)
-        assert dataset_path.endswith(".pkl")
-        self.hd = "/hd" + str(device + 1)
-        self.paths = [t[0] for t in get_common_voice_paths(dataset_path)]
-
-    def get_clip(self, i):
-        return get_common_voice_clip(self.paths[i].replace("/hd1", self.hd))
-
-
 class CombinedTVLibriSpeech(SortedDataset):
     def __init__(self, librispeech_dataset_path, tv_dataset_paths, batch_size, device):
         super().__init__(batch_size)
@@ -184,40 +130,6 @@ class CombinedTVLibriSpeech(SortedDataset):
             return get_tv_clip(audio_path.replace("/hd1", self.hd))
         elif "gigaspeech" in audio_path:
             return get_tv_clip(audio_path)
-        else:
-            print(audio_path, "not in datasets")
-            sys.exit(1)
-
-
-class CombinedTVLibriSpeechCommonVoice(SortedDataset):
-    def __init__(
-        self,
-        librispeech_dataset_path,
-        commonvoice_dataset_path,
-        tv_dataset_paths,
-        batch_size,
-        device,
-    ):
-        super().__init__(batch_size)
-        assert librispeech_dataset_path.endswith(".pkl")
-        assert commonvoice_dataset_path.endswith(".pkl")
-        tuples = get_librispeech_paths(librispeech_dataset_path)[:-2000]
-        tuples.extend(get_common_voice_paths(commonvoice_dataset_path))
-        for dataset_path in tv_dataset_paths:
-            with open(dataset_path, "rb") as f:
-                tuples.extend(pickle.load(f))
-        tuples = sorted(tuples, key=lambda t: t[1])
-        self.paths = [t[0] for t in tuples]
-        self.hd = "/hd" + str(device + 1)
-
-    def get_clip(self, i):
-        audio_path = self.paths[i]
-        if "LibriSpeech" in audio_path:
-            return get_librispeech_clip(audio_path.replace("/data", self.hd))
-        elif "clean" in audio_path:
-            return get_tv_clip(audio_path.replace("/hd1", self.hd))
-        elif "cv-corpus" in audio_path:
-            return get_common_voice_clip(audio_path.replace("/hd1", self.hd))
         else:
             print(audio_path, "not in datasets")
             sys.exit(1)

@@ -1,5 +1,4 @@
 import argparse
-import sys
 import time
 
 from comet_ml import Experiment
@@ -172,52 +171,38 @@ def eval(
     return avg_cer
 
 
+TV_TRAIN_DATASETS_PATHS = [
+    "datasets/first/sorted_train_cer_0.1.pkl",
+    "datasets/second/sorted_train_cer_0.1.pkl",
+    "datasets/third/sorted_train_cer_0.1.pkl",
+    "datasets/fourth/sorted_train_cer_0.1.pkl",
+    "datasets/fifth/sorted_train_cer_0.1.pkl",
+    "datasets/sixth/sorted_train_cer_0.1.pkl",
+    "datasets/gigaspeech/sorted_train_youtube_filtered.pkl",
+    "datasets/gigaspeech/sorted_train_podcast_filtered.pkl",
+    "datasets/gigaspeech/sorted_train_audiobook_filtered.pkl",
+]
+
+
 def main(hparams, experiment, device):
     experiment.log_parameters(hparams)
     torch.manual_seed(7)
 
     datasets = hparams["datasets"].split("-")
-    if "tv" in datasets:
-        tv_train_dataset_paths = [
-            "datasets/first/sorted_train_cer_0.1.pkl",
-            "datasets/second/sorted_train_cer_0.1.pkl",
-            "datasets/third/sorted_train_cer_0.1.pkl",
-            "datasets/fourth/sorted_train_cer_0.1.pkl",
-            "datasets/fifth/sorted_train_cer_0.1.pkl",
-            "datasets/sixth/sorted_train_cer_0.1.pkl",
-            "datasets/gigaspeech/sorted_train_youtube_filtered.pkl",
-            "datasets/gigaspeech/sorted_train_podcast_filtered.pkl",
-            "datasets/gigaspeech/sorted_train_audiobook_filtered.pkl",
-        ]
-        tv_eval_datasets = [
-            dataset.replace("train", "eval")
-            for dataset in tv_train_dataset_paths
-            if "gigaspeech" not in dataset
-        ]
-        eval_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"], device)
-        if "libri" in datasets:
-            if "cv" in datasets:
-                train_dataset = data.CombinedTVLibriSpeechCommonVoice(
-                    "datasets/librispeech/sorted_train_librispeech.pkl",
-                    "datasets/commonvoice/sorted_train_commonvoice.pkl",
-                    tv_train_dataset_paths,
-                    hparams["batch_size"],
-                    device,
-                )
-            else:
-                train_dataset = data.CombinedTVLibriSpeech(
-                    "datasets/librispeech/sorted_train_librispeech.pkl",
-                    tv_train_dataset_paths,
-                    hparams["batch_size"],
-                    device,
-                )
-        else:
-            train_dataset = data.SortedTV(
-                tv_train_dataset_paths, hparams["batch_size"], device
-            )
-    else:
-        print("Unkown dataset", hparams["dataset"])
-        sys.exit(1)
+    assert "tv" in datasets
+    assert "libri" in datasets
+    train_dataset = data.CombinedTVLibriSpeech(
+        "datasets/librispeech/sorted_train_librispeech.pkl",
+        TV_TRAIN_DATASETS_PATHS,
+        hparams["batch_size"],
+        device,
+    )
+    tv_eval_datasets = [
+        dataset.replace("train", "eval")
+        for dataset in TV_TRAIN_DATASETS_PATHS
+        if "gigaspeech" not in dataset
+    ]
+    eval_dataset = data.SortedTV(tv_eval_datasets, hparams["batch_size"], device)
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
@@ -251,7 +236,6 @@ def main(hparams, experiment, device):
         hparams["n_vocab"],
         hparams["n_feats"],
         hparams["dropout"],
-        hparams["highway_bias"],
         hparams["projection_size"],
     )
     # model.load_state_dict(
@@ -322,7 +306,6 @@ if __name__ == "__main__":
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
-    p.add_argument("--highway_bias", type=float, default=0.0)
     p.add_argument("--projection_size", type=int, default=0)
     args = p.parse_args()
     device = args.device
@@ -352,7 +335,6 @@ if __name__ == "__main__":
         "weight_decay": args.weight_decay,
         "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
-        "highway_bias": args.highway_bias,
         "projection_size": args.projection_size,
     }
     main(hparams, experiment, device)
