@@ -47,11 +47,16 @@ class LSTMBlock(nn.Module):
         if self.has_dropout:
             self.dropout = nn.Dropout(dropout)
         self.ln = nn.LayerNorm(input_dim)
-        self.lstm = nn.LSTM(proj_dim, lstm_dim, batch_first=False, bidirectional=True)
         if proj_dim > 0:
             self.proj = nn.Linear(input_dim, proj_dim)
+            self.lstm = nn.LSTM(
+                proj_dim, lstm_dim, batch_first=False, bidirectional=True
+            )
         else:
             self.proj = None
+            self.lstm = nn.LSTM(
+                input_dim, lstm_dim, batch_first=False, bidirectional=True
+            )
 
     def forward(self, x):
         x = self.ln(x)
@@ -60,6 +65,9 @@ class LSTMBlock(nn.Module):
         if self.has_dropout:
             x = self.dropout(x)
         x, _ = self.lstm(x)
+        x = (
+            x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
+        )  # T,B,C*2 -> T,B,C by sum
         return x
 
 
@@ -82,14 +90,14 @@ class SRModel(nn.Module):
         self.lstm_layers = [LSTMBlock(n_features, rnn_dim, proj_dim, dropout)]
         self.lstm_layers.extend(
             [
-                LSTMBlock(2 * rnn_dim, rnn_dim, proj_dim, dropout)
+                LSTMBlock(rnn_dim, rnn_dim, proj_dim, dropout)
                 for _ in range(n_rnn_layers - 1)
             ]
         )
         self.lstm_layers = nn.Sequential(*self.lstm_layers)
         self.classifier = nn.Sequential(
-            nn.LayerNorm(2 * rnn_dim),
-            nn.Linear(2 * rnn_dim, n_vocab + 1, bias=False),
+            nn.LayerNorm(rnn_dim),
+            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):  # B, C, T
