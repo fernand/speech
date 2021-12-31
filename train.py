@@ -1,5 +1,4 @@
 import argparse
-import math
 import sys
 import time
 
@@ -11,6 +10,7 @@ import bitsandbytes as bnb
 import data
 import net
 import decoder
+
 
 def get_linear_schedule_with_warmup(
     optimizer, num_warmup_steps, num_training_steps, last_epoch=-1
@@ -106,7 +106,7 @@ def train(
 def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
     eval_loss = 0
     eval_cer, eval_wer = [], []
-    for I, batch in enumerate(loader):
+    for _, batch in enumerate(loader):
         spectrograms, labels, label_lengths = batch
         current_batch_size = labels.size(0)
         spectrograms = spectrograms.cuda()
