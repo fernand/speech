@@ -58,17 +58,15 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, t_kernel_s=3) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
-        self.sru_layers = sru.SRUpp(
+        self.sru_layers = sru.SRU(
             input_size=n_features,
             hidden_size=rnn_dim,
-            proj_size=256,
-            num_heads=1,
             num_layers=n_rnn_layers,
             dropout=dropout,
             rescale=False,
             layer_norm=True,
-            bidirectional=True,
-            attention_every_n_layers=n_rnn_layers,
+            bidirectional=False,
+            amp_recurrence_fp16=True,
             highway_bias=highway_bias,
         )
         self.classifier = nn.Sequential(
