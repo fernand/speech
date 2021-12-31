@@ -256,7 +256,7 @@ def main():
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
-    p.add_argument("--projection_size", type=int, default=0)
+    p.add_argument("--proj_dim", type=int, default=0)
     args = p.parse_args()
 
     dist.init_process_group(backend="nccl")
@@ -265,7 +265,7 @@ def main():
 
     # experiment = Experiment(
     #     api_key="IJIo1bzzY2MAGvPlhq9hA7qsb",
-    #     project_name="general",
+    #     project_name="BiLSTM",
     #     workspace="fernand",
     #     auto_metric_logging=False,
     #     log_env_gpu=False,
@@ -290,7 +290,7 @@ def main():
         "weight_decay": args.weight_decay,
         "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
-        "projection_size": args.projection_size,
+        "proj_dim": args.proj_dim,
     }
 
     # if rank == 0:
@@ -304,7 +304,7 @@ def main():
             hparams["n_vocab"],
             hparams["n_feats"],
             hparams["dropout"],
-            hparams["projection_size"],
+            hparams["proj_dim"],
         ).to(rank),
         device_ids=[rank],
         output_device=rank,
@@ -330,10 +330,9 @@ def main():
     )
 
     if rank == 0:
-        # eval_loader, ibm_loader = get_eval_loaders(
-        #     hparams["datasets"], hparams["batch_size"], hparams["multiplier"]
-        # )
-        eval_loader, ibm_loader = None, None
+        eval_loader, ibm_loader = get_eval_loaders(
+            hparams["datasets"], hparams["batch_size"], hparams["multiplier"]
+        )
 
     if hparams["one_iter"]:
         num_epochs = 1
@@ -376,5 +375,6 @@ def main():
         dist.barrier()
 
 
+# torchrun --standalone --nnodes 1 --nproc_per_node 2 train.py
 if __name__ == "__main__":
     main()

@@ -41,22 +41,25 @@ class ResidualBlock(nn.Module):
 
 
 class LSTMBlock(nn.Module):
-    def __init__(self, input_dim, lstm_dim, dropout):
+    def __init__(self, input_dim, lstm_dim, proj_dim, dropout):
         super().__init__()
         self.has_dropout = dropout > 0.0
         if self.has_dropout:
             self.dropout = nn.Dropout(dropout)
         self.ln = nn.LayerNorm(input_dim)
-        self.lstm = nn.LSTM(input_dim, lstm_dim, batch_first=False, bidirectional=True)
+        self.lstm = nn.LSTM(proj_dim, lstm_dim, batch_first=False, bidirectional=True)
+        if proj_dim > 0:
+            self.proj = nn.Linear(input_dim, proj_dim)
+        else:
+            self.proj = None
 
     def forward(self, x):
         x = self.ln(x)
+        if self.proj is not None:
+            x = self.proj(x)
         if self.has_dropout:
             x = self.dropout(x)
         x, _ = self.lstm(x)
-        x = (
-            x.view(x.size(0), x.size(1), 2, -1).sum(2).view(x.size(0), x.size(1), -1)
-        )  # T,B,C*2 -> T,B,C by sum
         return x
 
 
@@ -68,7 +71,7 @@ class SRModel(nn.Module):
         n_vocab,
         n_feats,
         dropout,
-        projection_size,
+        proj_dim,
     ):
         super().__init__()
         self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
@@ -76,14 +79,17 @@ class SRModel(nn.Module):
             *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
         n_features = 32 * n_feats // 2
-        self.lstm_layers = [LSTMBlock(n_features, rnn_dim, dropout)]
+        self.lstm_layers = [LSTMBlock(n_features, rnn_dim, proj_dim, dropout)]
         self.lstm_layers.extend(
-            [LSTMBlock(rnn_dim, rnn_dim, dropout) for _ in range(n_rnn_layers - 1)]
+            [
+                LSTMBlock(2 * rnn_dim, rnn_dim, proj_dim, dropout)
+                for _ in range(n_rnn_layers - 1)
+            ]
         )
         self.lstm_layers = nn.Sequential(*self.lstm_layers)
         self.classifier = nn.Sequential(
-            nn.LayerNorm(rnn_dim),
-            nn.Linear(rnn_dim, n_vocab + 1, bias=False),
+            nn.LayerNorm(2 * rnn_dim),
+            nn.Linear(2 * rnn_dim, n_vocab + 1, bias=False),
         )
 
     def forward(self, x):  # B, C, T
