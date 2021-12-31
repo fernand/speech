@@ -65,7 +65,7 @@ class SRModel(nn.Module):
             dropout=dropout,
             rescale=False,
             layer_norm=True,
-            bidirectional=False,
+            bidirectional=True,
             amp_recurrence_fp16=True,
             highway_bias=highway_bias,
         )
@@ -80,7 +80,7 @@ class SRModel(nn.Module):
         sizes = x.size()
         x = x.view(sizes[0], sizes[1] * sizes[2], sizes[3]).contiguous()  # B, C, T
         x = x.permute(2, 0, 1).contiguous()  # T, B, C
-        x, _, _ = self.sru_layers(x)
+        x, _ = self.sru_layers(x)
         x = x.transpose(0, 1).contiguous()  # B, T, C
         x = self.classifier(x)
         return x
