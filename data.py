@@ -1,6 +1,7 @@
 import gc
 import os
 import pickle
+import re
 import sys
 
 import torch
@@ -21,6 +22,9 @@ train_audio_transforms = nn.Sequential(
     torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
     torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
+
+UM_REGEXP = re.compile(r"(uh)|(uhh)|(um)|(umm)|(eh)|(hm)|(ah)|(huh)|(ha)|(er)")
+MULTI_SPACE_REGEXP = re.compile(r"\s+")
 
 
 def get_librispeech_paths(dataset_path):
@@ -93,6 +97,8 @@ class IBMDataset(torch.utils.data.Dataset):
         waveform, _ = torchaudio.load(audio_path, normalize=True)
         with open(audio_path.replace(".wav", ".txt")) as f:
             utterance = f.read().strip()
+            #utterance = re.sub(UM_REGEXP, "", utterance)
+            #utterance = re.sub(MULTI_SPACE_REGEXP, "", utterance)
         return (waveform, utterance)
 
 
@@ -107,6 +113,7 @@ class SortedLibriSpeech(SortedDataset):
 
     def get_clip(self, i):
         return get_librispeech_clip(self.paths[i].replace("/data", "/hd1"))
+
 
 class SortedTV(SortedDataset):
     def __init__(self, dataset_paths, batch_size, device):

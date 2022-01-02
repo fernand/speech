@@ -54,6 +54,8 @@ def test(dataset_type, batch_size, model, test_loader, beam_decode):
                     output, labels, label_lengths
                 )
             for j in range(current_batch_size):
+                if len(decoded_targets[j]) == 0:
+                    continue
                 # print(decoded_targets[j], decoded_preds[j])
                 cer = decoder.cer(decoded_targets[j], decoded_preds[j])
                 test_cer.append(cer)

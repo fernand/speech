@@ -12,10 +12,6 @@ import tempfile
 import lz4.frame
 import scipy.io.wavfile
 
-sys.path.insert(0, "../..")
-import process.int_to_words as int_to_words
-
-
 def get_meta():
     with lz4.frame.open("/home/fernand/gs/gigaspeech.lzpkl", "rb") as f:
         return pickle.load(f)
@@ -45,25 +41,7 @@ def to_wav(audio_path, tmp_dir):
     return output_path
 
 
-NUMBER_REGEXP = re.compile(r"\d+")
-ACCENT_REGEXP = re.compile(r"[éèêëà]")
-DASH_REGEXP = re.compile(r"-")
-NON_ALPHA_QUOTE_REGEXP = re.compile(r"[^a-z\'\s]")
 MULTI_SPACE_REGEXP = re.compile(r"\s+")
-
-
-def replace_num(matchobj):
-    return " " + int_to_words.name_number(int(matchobj.group(0))) + " "
-
-
-ACCENT_DICT = {"é": "e", "è": "e", "ê": "e", "ë": "e", "à": "a"}
-
-# Ignore the transcript if those symbols are included.
-BLACKLIST = set(["[", "$", "¢", ".com"])
-
-
-def remove_accent(matchobj):
-    return ACCENT_DICT[matchobj.group(0)]
 
 
 def process_utterances(audio_meta):
@@ -72,12 +50,6 @@ def process_utterances(audio_meta):
         transcript = " ".join(
             [w for w in segment["text_tn"].lower().split(" ") if not w.startswith("<")]
         )
-        if any([c in transcript for c in BLACKLIST]):
-            continue
-        transcript = re.sub(NUMBER_REGEXP, replace_num, transcript)
-        transcript = re.sub(ACCENT_REGEXP, remove_accent, transcript)
-        transcript = re.sub(DASH_REGEXP, " ", transcript)
-        transcript = re.sub(NON_ALPHA_QUOTE_REGEXP, " ", transcript)
         transcript = re.sub(MULTI_SPACE_REGEXP, " ", transcript).lstrip()
 
         with open(os.path.join(txt_dir, segment["sid"] + ".txt"), "wt") as f:
