@@ -96,6 +96,18 @@ class IBMDataset(torch.utils.data.Dataset):
         return (waveform, utterance)
 
 
+class SortedLibriSpeech(SortedDataset):
+    def __init__(self, dataset_path, batch_size):
+        super().__init__(batch_size)
+        assert dataset_path.endswith(".pkl")
+        self.paths = [t[0] for t in get_librispeech_paths(dataset_path)]
+        if "train" in dataset_path:
+            # Remove the longest clips.
+            self.paths = self.paths[:-1000]
+
+    def get_clip(self, i):
+        return get_librispeech_clip(self.paths[i].replace("/data", "/hd1"))
+
 class SortedTV(SortedDataset):
     def __init__(self, dataset_paths, batch_size, device):
         super().__init__(batch_size)

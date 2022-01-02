@@ -22,7 +22,7 @@ def test(dataset_type, batch_size, model, test_loader, beam_decode):
         ctc_decoder = build_ctcdecoder(
             labels,
             "/home/fernand/speech/coqui/huge-vocabulary.scorer",
-            alpha=0.5,
+            alpha=0.3,
             beta=1.0,
         )
     print("\nevaluating...")
@@ -63,8 +63,8 @@ def test(dataset_type, batch_size, model, test_loader, beam_decode):
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
     print("Test set: Average CER: {:4f} Average WER: {:.4f}\n".format(avg_cer, avg_wer))
-    # with open("bad_cers.pkl", "wb") as f:
-    #    pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
+    with open("bad_cers.pkl", "wb") as f:
+       pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
 
 if __name__ == "__main__":
@@ -74,14 +74,13 @@ if __name__ == "__main__":
     hparams = {
         "shuffle": True,
         "batch_size": 64,
-        "epochs": 15,
-        "learning_rate": 3e-4,
         "n_rnn_layers": 10,
         "rnn_dim": 512,
         "dropout": 0.1,
         # Does not include the blank.
         "n_vocab": 28,
         "n_feats": data.N_MELS,
+        "projection_size": 0,
     }
     model = net.SRModel(
         hparams["n_rnn_layers"],
@@ -89,6 +88,7 @@ if __name__ == "__main__":
         hparams["n_vocab"],
         hparams["n_feats"],
         hparams["dropout"],
+        hparams["projection_size"],
     )
     model.cuda()
     batch_size = None
