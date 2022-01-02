@@ -97,8 +97,8 @@ class IBMDataset(torch.utils.data.Dataset):
         waveform, _ = torchaudio.load(audio_path, normalize=True)
         with open(audio_path.replace(".wav", ".txt")) as f:
             utterance = f.read().strip()
-            utterance = re.sub(UM_REGEXP, "", utterance)
-            utterance = re.sub(MULTI_SPACE_REGEXP, "", utterance)
+            #utterance = re.sub(UM_REGEXP, "", utterance)
+            #utterance = re.sub(MULTI_SPACE_REGEXP, " ", utterance)
         return (waveform, utterance)
 
 

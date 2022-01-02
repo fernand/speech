@@ -54,8 +54,6 @@ def test(dataset_type, batch_size, model, test_loader, beam_decode):
                     output, labels, label_lengths
                 )
             for j in range(current_batch_size):
-                if len(decoded_targets[j]) == 0:
-                    continue
                 # print(decoded_targets[j], decoded_preds[j])
                 cer = decoder.cer(decoded_targets[j], decoded_preds[j])
                 test_cer.append(cer)
@@ -65,8 +63,8 @@ def test(dataset_type, batch_size, model, test_loader, beam_decode):
     avg_cer = sum(test_cer) / len(test_cer)
     avg_wer = sum(test_wer) / len(test_wer)
     print("Test set: Average CER: {:4f} Average WER: {:.4f}\n".format(avg_cer, avg_wer))
-    with open("bad_cers.pkl", "wb") as f:
-       pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
+    #with open("bad_cers.pkl", "wb") as f:
+    #   pickle.dump(sorted(bad_cers, key=lambda t: t[2], reverse=True), f)
 
 
 if __name__ == "__main__":

@@ -130,8 +130,6 @@ def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
             output.transpose(0, 1), labels, label_lengths
         )
         for j in range(len(decoded_preds)):
-            if len(decoded_targets[j]) == 0:
-                continue
             eval_cer.append(decoder.cer(decoded_targets[j], decoded_preds[j]))
             eval_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
     avg_cer = sum(eval_cer) / len(eval_cer)
