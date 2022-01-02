@@ -129,6 +129,8 @@ def eval_dataset(experiment, model, criterion, loader, name, iter_meter):
             output.transpose(0, 1), labels, label_lengths
         )
         for j in range(len(decoded_preds)):
+            if len(decoded_targets[j]) == 0:
+                continue
             eval_cer.append(decoder.cer(decoded_targets[j], decoded_preds[j]))
             eval_wer.append(decoder.wer(decoded_targets[j], decoded_preds[j]))
     avg_cer = sum(eval_cer) / len(eval_cer)
@@ -246,17 +248,18 @@ def main(hparams, experiment, device):
         hparams["dropout"],
         hparams["projection_size"],
     )
-    # model.load_state_dict(
-    #    torch.load(
-    #        "good_models/v2-sru-1234-0.1cer/model_f4dd9b8968b94ee6b278266af30dfcef.pth"
-    #    )
-    # )
+    #checkpoint = torch.load()
+    checkpoint = None
+    if checkpoint is not None:
+        model.load_state_dict(checkpoint['model_state_dict'])
     model.cuda()
     optimizer = bnb.optim.Adam8bit(
         model.parameters(),
         lr=hparams["learning_rate"],
         weight_decay=hparams["weight_decay"],
     )
+    if checkpoint is not None:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
