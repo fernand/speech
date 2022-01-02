@@ -1,3 +1,4 @@
+import gc
 import os
 import pickle
 import sys
@@ -121,8 +122,15 @@ class CombinedTVLibriSpeech(SortedDataset):
         tuples = sorted(tuples, key=lambda t: t[1])
         self.paths = [t[0] for t in tuples]
         self.hd = "/hd" + str(device + 1)
+        self.counter = 0
+        self.num_paths = len(self.paths)
 
     def get_clip(self, i):
+        if self.counter == num_paths:
+            gc.collect()
+            self.counter = 0
+        else:
+            self.counter += 1
         audio_path = self.paths[i]
         if "LibriSpeech" in audio_path:
             return get_librispeech_clip(audio_path.replace("/data", self.hd))

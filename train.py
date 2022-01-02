@@ -154,6 +154,7 @@ def eval(
     iter_meter,
     experiment,
     last_cer,
+    optimizer,
 ):
     print("\nevaluating…")
     model.eval()
@@ -167,7 +168,14 @@ def eval(
             )
     if avg_cer < last_cer:
         exp_id = experiment.url.split("/")[-1]
-        torch.save(model.state_dict(), f"model_{exp_id}.pth")
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+            },
+            f"model_{exp_id}.pth",
+        )
     return avg_cer
 
 
@@ -291,6 +299,7 @@ def main(hparams, experiment, device):
             iter_meter,
             experiment,
             last_cer,
+            optimizer,
         )
 
 
