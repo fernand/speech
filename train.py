@@ -1,4 +1,5 @@
 import argparse
+import gc
 import time
 
 from comet_ml import Experiment
@@ -304,6 +305,7 @@ def main(hparams, experiment, device):
             last_cer,
             optimizer,
         )
+        gc.collect()
 
 
 if __name__ == "__main__":

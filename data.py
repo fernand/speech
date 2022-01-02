@@ -145,7 +145,7 @@ class CombinedTVLibriSpeech(SortedDataset):
         self.num_paths = len(self.paths)
 
     def get_clip(self, i):
-        if self.counter == num_paths:
+        if self.counter == self.num_paths:
             gc.collect()
             self.counter = 0
         else:
