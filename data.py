@@ -97,8 +97,8 @@ class IBMDataset(torch.utils.data.Dataset):
         waveform, _ = torchaudio.load(audio_path, normalize=True)
         with open(audio_path.replace(".wav", ".txt")) as f:
             utterance = f.read().strip()
-            #utterance = re.sub(UM_REGEXP, "", utterance)
-            #utterance = re.sub(MULTI_SPACE_REGEXP, " ", utterance)
+            # utterance = re.sub(UM_REGEXP, "", utterance)
+            # utterance = re.sub(MULTI_SPACE_REGEXP, " ", utterance)
         return (waveform, utterance)
 
 
@@ -139,18 +139,13 @@ class CombinedTVLibriSpeech(SortedDataset):
             with open(dataset_path, "rb") as f:
                 tuples.extend(pickle.load(f))
         tuples = sorted(tuples, key=lambda t: t[1])
-        self.paths = [t[0] for t in tuples]
+        self.paths = np.array([t[0] for t in tuples]).astype(np.string_)
+        del tuples
+        gc.collect()
         self.hd = "/hd" + str(device + 1)
-        self.counter = 0
-        self.num_paths = len(self.paths)
 
     def get_clip(self, i):
-        if self.counter == self.num_paths:
-            gc.collect()
-            self.counter = 0
-        else:
-            self.counter += 1
-        audio_path = self.paths[i]
+        audio_path = str(self.paths[i], encoding="utf-8")
         if "LibriSpeech" in audio_path:
             return get_librispeech_clip(audio_path.replace("/data", self.hd))
         elif "clean" in audio_path:

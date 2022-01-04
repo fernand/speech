@@ -1,5 +1,4 @@
 import argparse
-import gc
 import time
 
 from comet_ml import Experiment
@@ -247,10 +246,10 @@ def main(hparams, experiment, device):
         hparams["dropout"],
         hparams["projection_size"],
     )
-    #checkpoint = torch.load()
+    # checkpoint = torch.load()
     checkpoint = None
     if checkpoint is not None:
-        model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint["model_state_dict"])
     model.cuda()
     optimizer = bnb.optim.Adam8bit(
         model.parameters(),
@@ -258,7 +257,7 @@ def main(hparams, experiment, device):
         weight_decay=hparams["weight_decay"],
     )
     if checkpoint is not None:
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     print(
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
@@ -303,7 +302,6 @@ def main(hparams, experiment, device):
             last_cer,
             optimizer,
         )
-        gc.collect()
 
 
 if __name__ == "__main__":
