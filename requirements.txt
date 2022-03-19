@@ -1,10 +1,7 @@
-# Capture: tsduck, ccextractor, ffmpeg static build, linux-mediatree hauppauge
-# Alignment: libespeak-dev, ffmpeg static build
-# pytorch, kenlm
-aeneas
-comet_ml
+# Alignment: ffmpeg static build
+# pytorch
 joblib
-python-Levenshtein
 scipy
+sox
 sru
 tqdm
