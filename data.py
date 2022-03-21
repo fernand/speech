@@ -57,12 +57,11 @@ def collate_fn(data, data_type="train"):
     labels = []
     for (waveform, disc) in data:
         if data_type == "train":
-            # There's an extra spect time at the end compared to the labels.
-            spec = (
-                train_audio_transforms(waveform).squeeze(0).transpose(0, 1)[:-1, :]
-            )  # T, C
+            spec = train_audio_transforms(waveform).squeeze(0).transpose(0, 1)  # T, C
         else:
             spec = spectrogram_transform(waveform).squeeze(0).transpose(0, 1)
+        if len(spec) > len(disc):
+            spec = spec[:-1, :]
         spectrograms.append(spec)
         label = torch.LongTensor([int(c) for c in disc])
         labels.append(label)
