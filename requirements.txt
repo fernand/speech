@@ -1,7 +1,5 @@
 # Alignment: ffmpeg static build
 # pytorch
-joblib
 scipy
-sox
 sru
 tqdm
