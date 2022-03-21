@@ -1,3 +1,6 @@
+"""
+WIP. Need to calculate alignment with biopython/alignment then write the wav files.
+"""
 import itertools
 import math
 import multiprocessing

@@ -6,6 +6,7 @@ custom
 *.txt
 *.pth
 *.model
+*.yml
 silero-models
 datasets
 sp

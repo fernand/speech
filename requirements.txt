@@ -1,5 +1,9 @@
 # Alignment: ffmpeg static build
 # pytorch
+biopython
+flask
+gunicorn
+psutil
+requests
 scipy
 sru
-tqdm
