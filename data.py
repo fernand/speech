@@ -64,6 +64,8 @@ def collate_fn(data, data_type="train"):
             spec = spec[:-1, :]
         spectrograms.append(spec)
         label = torch.LongTensor([int(c) for c in disc])
+        if len(disc) > len(spec):
+            label = label[:-1]
         labels.append(label)
 
     spectrograms = nn.utils.rnn.pad_sequence(spectrograms, batch_first=True)  # B, T, C
