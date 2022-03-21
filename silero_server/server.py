@@ -28,7 +28,7 @@ def align():
         output = model(input)
         for i, example in enumerate(output):
             alignment = decoder(
-                example.cpu(), wav_len=len(loaded_batch[i]), word_align=True
+                example.cpu(), wav_len=len(loaded_batch[i]) / 16000, word_align=True
             )
             result[audio_paths[file_idx]] = alignment
             file_idx += 1

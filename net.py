@@ -53,11 +53,11 @@ class SRModel(nn.Module):
         projection_size,
     ):
         super().__init__()
-        self.cnn = nn.Conv2d(1, 32, 3, stride=2, padding=3 // 2)
+        self.cnn = nn.Conv2d(1, 32, 3, stride=1, padding=3 // 2)
         self.resnet_layers = nn.Sequential(
             *[ResidualBlock(32, 32, t_kernel_s=5) for _ in range(3)]
         )
-        n_features = 32 * n_feats // 2
+        n_features = 32 * n_feats
         self.sru_layers = sru.SRU(
             input_size=n_features,
             hidden_size=rnn_dim,
@@ -67,12 +67,12 @@ class SRModel(nn.Module):
             rescale=False,
             highway_bias=0.0,
             layer_norm=True,
-            bidirectional=True,
+            bidirectional=False,
             amp_recurrence_fp16=True,
         )
         self.classifier = nn.Sequential(
-            nn.LayerNorm(2 * rnn_dim),
-            nn.Linear(2 * rnn_dim, n_vocab + 1, bias=False),
+            nn.LayerNorm(rnn_dim),
+            nn.Linear(rnn_dim, n_vocab, bias=False),
         )
 
     def forward(self, x):  # B, C, T

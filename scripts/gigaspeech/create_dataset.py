@@ -6,11 +6,11 @@ import pickle
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 
 import lz4.frame
 import scipy.io.wavfile
+
 
 def get_meta():
     with lz4.frame.open("/home/fernand/gs/gigaspeech.lzpkl", "rb") as f:
