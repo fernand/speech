@@ -150,6 +150,15 @@ def main(hparams, device):
             hparams["epochs"],
             hparams["clip_grad_norm"],
         )
+    torch.save(
+        {
+            "hparams": hparams,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict(),
+        },
+        "model.pth"
+    )
 
 
 if __name__ == "__main__":
