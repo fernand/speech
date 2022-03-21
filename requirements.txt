@@ -3,7 +3,10 @@
 biopython
 flask
 gunicorn
+joblib
 psutil
 requests
 scipy
 sru
+tqdm
+ujson

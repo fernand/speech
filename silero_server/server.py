@@ -1,7 +1,7 @@
 """
 gunicorn -w 2 -b 127.0.0.1:4000 "server:app"
 """
-import json
+import ujson
 from flask import Flask, request
 
 import silero_utils
@@ -12,13 +12,15 @@ model, decoder, device_id = None, None, None
 
 @app.route("/align", methods=["POST"])
 def align():
-    audio_paths = json.loads(request.json)["audio_paths"]
+    payload = ujson.loads(request.json)
+    audio_paths = payload["audio_paths"]
+    batch_size = payload["batch_size"]
     global model, decoder, device_id
     if model is None:
         (model, decoder, _), device_id = silero_utils.get_model_tuple()
 
     result = {}
-    batches = silero_utils.split_into_batches(audio_paths, batch_size=128)
+    batches = silero_utils.split_into_batches(audio_paths, batch_size=batch_size)
     file_idx = 0
     for batch in batches:
         loaded_batch = silero_utils.read_batch(batch)
