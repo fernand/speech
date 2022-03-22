@@ -39,9 +39,8 @@ def train(
     clip_grad_norm,
 ):
     model.train()
-    data_len = len(train_loader.dataset)
+    data_len = len(train_loader)
     start = time.time()
-    batch_start = start
     for batch_idx, batch in enumerate(train_loader):
         spectrograms, labels = batch
         spectrograms = spectrograms.cuda()
@@ -49,8 +48,7 @@ def train(
         optimizer.zero_grad()
 
         with torch.cuda.amp.autocast():
-            output = model(spectrograms)  # B, T, n_vocab
-            output = F.log_softmax(output, dim=2).transpose(1, 2)
+            output = model(spectrograms)  # B, T, 1
             labels = labels.cuda()
             loss = criterion(output, labels)
 
@@ -63,7 +61,7 @@ def train(
         scaler.update()
         scheduler.step()
         if batch_idx % 100 == 0:
-            time_for_100_batches = round(time.time() - batch_start, 1)
+            time_for_100_batches = round(time.time() - start, 1)
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tT100B: {}".format(
                     epoch,
@@ -74,9 +72,7 @@ def train(
                     time_for_100_batches,
                 )
             )
-            batch_start = time.time()
-    print("epoch_time", round(time.time() - start))
-    print("=======================================")
+            start = time.time()
 
 
 def main(hparams, device):
@@ -95,21 +91,14 @@ def main(hparams, device):
 
     train_loader = torch.utils.data.DataLoader(
         dataset=train_dataset,
-        batch_size=32 * hparams["multiplier"],
+        batch_size=hparams["batch_size"],
         shuffle=True,
         collate_fn=lambda x: data.collate_fn(x, "train"),
         num_workers=6,
         pin_memory=True,
     )
 
-    model = net.SRModel(
-        hparams["n_rnn_layers"],
-        hparams["rnn_dim"],
-        hparams["n_vocab"],
-        hparams["n_feats"],
-        hparams["dropout"],
-        hparams["projection_size"],
-    )
+    model = net.Model()
     # checkpoint = torch.load()
     checkpoint = None
     if checkpoint is not None:
@@ -127,10 +116,10 @@ def main(hparams, device):
         "Num Model Parameters", sum([param.nelement() for param in model.parameters()])
     )
 
-    criterion = torch.nn.NLLLoss(reduction="mean", ignore_index=3).cuda()
+    criterion = torch.nn.BCEWithLogitsLoss().cuda()
     scaler = torch.cuda.amp.GradScaler()
     scheduler = get_linear_schedule_with_warmup(
-        optimizer, 7000 // hparams["multiplier"], hparams["epochs"] * len(train_loader)
+        optimizer, 5 * len(train_loader), hparams["epochs"] * len(train_loader)
     )
 
     if hparams["one_iter"]:
@@ -157,7 +146,7 @@ def main(hparams, device):
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
         },
-        "model.pth"
+        f"model_{device}.pth"
     )
 
 
@@ -165,30 +154,21 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--one_iter", action="store_true")
     p.set_defaults(one_iter=False)
-    p.add_argument("--multiplier", type=int, default=2)
+    p.add_argument("--batch_size", type=int, default=64)
     p.add_argument("--device", type=int)
     p.add_argument("--weight_decay", type=float, default=0.001)
     p.add_argument("--clip_grad_norm", type=float, default=2.0)
-    p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--learning_rate", type=float, default=3e-4)
     p.add_argument("--num_epochs", type=int, default=45)
-    p.add_argument("--projection_size", type=int, default=0)
     args = p.parse_args()
     device = args.device
     hparams = {
-        "batch_size": 32 * args.multiplier,
-        "multiplier": args.multiplier,
+        "batch_size": args.batch_size,
         "epochs": args.num_epochs,
         "learning_rate": args.learning_rate,
-        "n_rnn_layers": 1,
-        "rnn_dim": 512,
-        "dropout": args.dropout,
-        # Does not include the blank.
-        "n_vocab": 3,
         "n_feats": data.N_MELS,
         "weight_decay": args.weight_decay,
         "clip_grad_norm": args.clip_grad_norm,
         "one_iter": args.one_iter,
-        "projection_size": args.projection_size,
     }
     main(hparams, device)
