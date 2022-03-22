@@ -18,14 +18,14 @@ spectrogram_transform = torchaudio.transforms.MelSpectrogram(
 
 train_audio_transforms = nn.Sequential(
     spectrogram_transform,
-    #torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
+    # torchaudio.transforms.FrequencyMasking(freq_mask_param=15),
     # torchaudio.transforms.TimeMasking(time_mask_param=35),
 )
 
 
 def get_seg(audio_path, start_idx):
     _, wav = scipy.io.wavfile.read(audio_path)
-    # I want a chunk of at least two seconds 
+    # I want a chunk of at least two seconds
     if start_idx is not None:
         min_stop_idx = 2 * 16000
         if len(wav) <= min_stop_idx:
@@ -58,15 +58,15 @@ class SpeakerDataset(torch.utils.data.Dataset):
         p1_th = torch.from_numpy(p1_wav / 32767).float()
         same_seg = random.choice([True, False])
         if same_seg:
-            #if i % 100 == 0:
-            #    scipy.io.wavfile.write('/tmp/0_'+str(uuid.uuid4())+'.wav', 16000, p1_wav)  
+            # if i % 100 == 0:
+            #    scipy.io.wavfile.write('/tmp/0_'+str(uuid.uuid4())+'.wav', 16000, p1_wav)
             return (p1_th, 0)
         else:
             p2_segs = self.segments[pair[1]]
             p2_seg = random.sample(p2_segs, 1)[0]
             p2_wav = get_seg(p2_seg, 0)
             p2_th = torch.from_numpy(p2_wav / 32767).float()
-            #if i % 100 == 0:
+            # if i % 100 == 0:
             #    scipy.io.wavfile.write('/tmp/1_'+str(uuid.uuid4())+'.wav', 16000, np.concatenate([p1_wav,p2_wav]))
             return (torch.cat([p1_th, p2_th], dim=0), 1)
 

@@ -146,7 +146,7 @@ def main(hparams, device):
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler": scheduler.state_dict(),
         },
-        f"model_{device}.pth"
+        f"model_{device}.pth",
     )
 
 
