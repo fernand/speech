@@ -48,7 +48,7 @@ def train(
         optimizer.zero_grad()
 
         with torch.cuda.amp.autocast():
-            output = model(spectrograms)  # B, T, 1
+            output = model(spectrograms)  # B, 1
             labels = labels.cuda()
             loss = criterion(output, labels)
 
